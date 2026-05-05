@@ -22,19 +22,12 @@ const GET_PINNED_ITEMS = `
   }
 `
 
+// Minimum possible mutation to test connectivity and logic
 const UPDATE_PINNED_ITEMS = `
-  mutation UpdatePins($ids: [ID!]!) {
+  mutation($ids: [ID!]!) {
     updateUserPinnedItems(input: { pinnedRepositoryIds: $ids }) {
       user {
         id
-        pinnedItems(first: 6, types: [REPOSITORY]) {
-          nodes {
-            ... on Repository {
-              id
-              name
-            }
-          }
-        }
       }
     }
   }
@@ -84,15 +77,16 @@ export async function fetchPinnableRepos(): Promise<Pin[]> {
 
 export async function updatePins(repositoryIds: string[]) {
   const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  console.log("Updating pins with IDs:", repositoryIds)
+  if (!session?.accessToken) {
+    return { success: false, error: "Not authenticated" }
+  }
 
   try {
-    const result = await graphqlFetch(session.accessToken, UPDATE_PINNED_ITEMS, { ids: repositoryIds })
-    return result
-  } catch (error) {
-    console.error("updatePins server error:", error)
-    throw error // Re-throw to trigger the catch block in the client
+    console.log("Attempting to update pins with IDs:", repositoryIds)
+    await graphqlFetch(session.accessToken, UPDATE_PINNED_ITEMS, { ids: repositoryIds })
+    return { success: true }
+  } catch (error: any) {
+    console.error("updatePins server-side catch:", error.message)
+    return { success: false, error: error.message }
   }
 }

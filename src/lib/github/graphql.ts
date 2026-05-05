@@ -4,16 +4,20 @@ export async function graphqlFetch(accessToken: string, query: string, variables
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "User-Agent": "GitFit-App",
     },
     body: JSON.stringify({ query, variables }),
   })
 
   if (!response.ok) {
-    throw new Error(`GraphQL request failed: ${response.statusText}`)
+    const text = await response.text()
+    console.error("GraphQL HTTP Error:", response.status, text)
+    throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
   }
 
   const json = await response.json()
   if (json.errors) {
+    console.error("GraphQL Logic Error:", json.errors)
     throw new Error(json.errors[0]?.message || "GraphQL error")
   }
 

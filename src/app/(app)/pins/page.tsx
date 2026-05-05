@@ -94,11 +94,15 @@ export default function PinsPage() {
     if (!localPins) return
     setSaving(true)
     try {
-      await updatePins(localPins.map((p) => p.id))
-      queryClient.setQueryData(["pins"], [...localPins])
-      addToast({ type: "success", message: "Pins updated on your profile!" })
-    } catch {
-      addToast({ type: "error", message: "Failed to update pins" })
+      const result = await updatePins(localPins.map((p) => p.id))
+      if (result.success) {
+        queryClient.setQueryData(["pins"], [...localPins])
+        addToast({ type: "success", message: "Pins updated on your profile!" })
+      } else {
+        addToast({ type: "error", message: result.error || "Failed to update pins" })
+      }
+    } catch (err: any) {
+      addToast({ type: "error", message: "A network error occurred" })
     } finally {
       setSaving(false)
     }
