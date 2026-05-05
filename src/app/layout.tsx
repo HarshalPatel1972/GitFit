@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "GitFit — Your GitHub, finally under control",
   description:
     "Bulk manage your GitHub repos, stars, pins, and issues. Archive, privatize, delete, tag, and rename — all in one warm, fast dashboard.",
-  icons: { icon: "/favicon.ico" },
+  icons: { icon: "/icon.png" },
 }
 
 export default function RootLayout({
