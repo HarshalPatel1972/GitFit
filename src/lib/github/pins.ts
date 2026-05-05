@@ -23,18 +23,16 @@ const GET_PINNED_ITEMS = `
 `
 
 const UPDATE_PINNED_ITEMS = `
-  mutation UpdatePinnedItems($repositoryIds: [ID!]!) {
-    updateUserPinnedItems(input: { pinnedRepositoryIds: $repositoryIds }) {
-      user {
-        pinnedItems(first: 6, types: [REPOSITORY]) {
-          nodes {
-            ... on Repository {
-              id
-              name
-              description
-              stargazerCount
-              primaryLanguage { name color }
-            }
+  mutation SetPinnedItems($repositoryIds: [ID!]!) {
+    setPinnedItems(input: { itemIds: $repositoryIds, type: REPOSITORY }) {
+      pinnedItems(first: 6, types: [REPOSITORY]) {
+        nodes {
+          ... on Repository {
+            id
+            name
+            description
+            stargazerCount
+            primaryLanguage { name color }
           }
         }
       }

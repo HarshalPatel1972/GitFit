@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
@@ -42,7 +42,7 @@ export default function PinsPage() {
   const pins = localPins ?? pinnedItems ?? []
 
   // Sync remote data to local state
-  useMemo(() => {
+  useEffect(() => {
     if (pinnedItems && !localPins) {
       setLocalPins([...pinnedItems])
     }
@@ -76,14 +76,14 @@ export default function PinsPage() {
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     if (dragIndex === null || dragIndex === index) return
-    setLocalPins((prev) => {
-      if (!prev) return prev
-      const newPins = [...prev]
-      const [moved] = newPins.splice(dragIndex, 1)
-      newPins.splice(index, 0, moved)
-      setDragIndex(index)
-      return newPins
-    })
+    
+    const newPins = [...(localPins || [])]
+    const item = newPins[dragIndex]
+    newPins.splice(dragIndex, 1)
+    newPins.splice(index, 0, item)
+    
+    setLocalPins(newPins)
+    setDragIndex(index)
   }
 
   const handleDragEnd = () => {
