@@ -96,7 +96,9 @@ export default function PinsPage() {
     try {
       const result = await updatePins(localPins.map((p) => p.id))
       if (result.success) {
-        queryClient.setQueryData(["pins"], [...localPins])
+        // Force a full re-fetch from GitHub to verify the state
+        await queryClient.invalidateQueries({ queryKey: ["pins"] })
+        setLocalPins(null) // Reset local state to trigger sync from new remote data
         addToast({ type: "success", message: "Pins updated on your profile!" })
       } else {
         addToast({ type: "error", message: result.error || "Failed to update pins" })

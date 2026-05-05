@@ -22,12 +22,18 @@ const GET_PINNED_ITEMS = `
   }
 `
 
-// Minimum possible mutation to test connectivity and logic
 const UPDATE_PINNED_ITEMS = `
   mutation($ids: [ID!]!) {
     updateUserPinnedItems(input: { pinnedRepositoryIds: $ids }) {
       user {
-        id
+        pinnedItems(first: 6, types: [REPOSITORY]) {
+          nodes {
+            ... on Repository {
+              id
+              name
+            }
+          }
+        }
       }
     }
   }
@@ -36,7 +42,7 @@ const UPDATE_PINNED_ITEMS = `
 const GET_PINNABLE_REPOS = `
   query GetPinnableRepos($first: Int!) {
     viewer {
-      repositories(first: $first, ownerAffiliations: [OWNER], orderBy: {field: STARGAZERS, direction: DESC}) {
+      repositories(first: $first, ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER], orderBy: {field: PUSHED_AT, direction: DESC}) {
         nodes {
           id
           name
@@ -67,6 +73,7 @@ export async function fetchPinnableRepos(): Promise<Pin[]> {
   if (!session?.accessToken) throw new Error("Not authenticated")
 
   try {
+    // We increase affiliations to ensure we see all repos the user can pin
     const data = await graphqlFetch(session.accessToken, GET_PINNABLE_REPOS, { first: 100 })
     return (data.viewer.repositories.nodes || []) as Pin[]
   } catch (error) {
@@ -77,16 +84,21 @@ export async function fetchPinnableRepos(): Promise<Pin[]> {
 
 export async function updatePins(repositoryIds: string[]) {
   const session = await auth()
-  if (!session?.accessToken) {
-    return { success: false, error: "Not authenticated" }
-  }
+  if (!session?.accessToken) return { success: false, error: "Not authenticated" }
 
   try {
-    console.log("Attempting to update pins with IDs:", repositoryIds)
-    await graphqlFetch(session.accessToken, UPDATE_PINNED_ITEMS, { ids: repositoryIds })
-    return { success: true }
+    // Ensure we only pass up to 6 IDs as per GitHub limit
+    const idsToPin = repositoryIds.slice(0, 6)
+    
+    const result = await graphqlFetch(session.accessToken, UPDATE_PINNED_ITEMS, { ids: idsToPin })
+    
+    // Check if the returned pins match what we sent
+    const newPins = result.updateUserPinnedItems.user.pinnedItems.nodes || []
+    console.log("GitHub confirmed pins:", newPins.map((p: any) => p.name))
+    
+    return { success: true, count: newPins.length }
   } catch (error: any) {
-    console.error("updatePins server-side catch:", error.message)
+    console.error("updatePins error:", error.message)
     return { success: false, error: error.message }
   }
 }
