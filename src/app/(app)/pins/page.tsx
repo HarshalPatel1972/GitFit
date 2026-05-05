@@ -38,15 +38,14 @@ export default function PinsPage() {
   const [saving, setSaving] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
-  // Use local state once loaded
-  const pins = localPins ?? pinnedItems ?? []
-
-  // Sync remote data to local state
+  // Sync remote data to local state only once per load
   useEffect(() => {
-    if (pinnedItems && !localPins) {
+    if (pinnedItems && localPins === null) {
       setLocalPins([...pinnedItems])
     }
   }, [pinnedItems, localPins])
+
+  const pins = localPins || []
 
   const hasChanges = useMemo(() => {
     if (!pinnedItems || !localPins) return false
@@ -60,335 +59,171 @@ export default function PinsPage() {
 
   const addPin = useCallback((pin: Pin) => {
     setLocalPins((prev) => {
-      if (!prev) return [pin]
-      if (prev.length >= 6) return prev
-      if (prev.some((p) => p.id === pin.id)) return prev
-      return [...prev, pin]
+      const current = prev || []
+      if (current.length >= 6) return current
+      if (current.some((p) => p.id === pin.id)) return current
+      return [...current, pin]
     })
     setShowAddModal(false)
   }, [])
 
-  // Drag and drop
-  const handleDragStart = (index: number) => {
-    setDragIndex(index)
-  }
-
+  // Simplified Drag and Drop
+  const handleDragStart = (index: number) => setDragIndex(index)
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    if (dragIndex === null || dragIndex === index) return
-    
-    const newPins = [...(localPins || [])]
-    const item = newPins[dragIndex]
-    newPins.splice(dragIndex, 1)
-    newPins.splice(index, 0, item)
-    
-    setLocalPins(newPins)
-    setDragIndex(index)
   }
-
-  const handleDragEnd = () => {
+  const handleDrop = (index: number) => {
+    if (dragIndex === null || dragIndex === index) return
+    const newPins = [...pins]
+    const [moved] = newPins.splice(dragIndex, 1)
+    newPins.splice(index, 0, moved)
+    setLocalPins(newPins)
     setDragIndex(null)
   }
 
   const handleSave = async () => {
     if (!localPins) return
+    
+    console.log("Save initiated. Total pins:", localPins.length)
     setSaving(true)
+    
     try {
-      const result = await updatePins(localPins.map((p) => p.id))
+      const pinIds = localPins.map((p) => p.id)
+      console.log("Sending IDs to server:", pinIds)
+      
+      const result = await updatePins(pinIds)
+      console.log("Server response received:", result)
+      
       if (result.success) {
-        // Force a full re-fetch from GitHub to verify the state
-        await queryClient.invalidateQueries({ queryKey: ["pins"] })
-        setLocalPins(null) // Reset local state to trigger sync from new remote data
         addToast({ type: "success", message: "Pins updated on your profile!" })
+        await queryClient.invalidateQueries({ queryKey: ["pins"] })
+        setLocalPins(null) // Reset to re-sync
       } else {
+        console.error("Server reported failure:", result.error)
         addToast({ type: "error", message: result.error || "Failed to update pins" })
       }
     } catch (err: any) {
-      addToast({ type: "error", message: "A network error occurred" })
+      console.error("Client-side catch-all error:", err)
+      addToast({ type: "error", message: "An unexpected error occurred" })
     } finally {
       setSaving(false)
+      console.log("Save process finished.")
     }
   }
 
-  // Available repos to pin (not already pinned)
   const availableRepos = useMemo(() => {
     if (!pinnableRepos) return []
     const pinnedIds = new Set(pins.map((p) => p.id))
     return pinnableRepos.filter((r) => !pinnedIds.has(r.id))
   }, [pinnableRepos, pins])
 
+  if (!session) return <div style={{ padding: 40, textAlign: "center" }}>Please sign in to manage pins.</div>
+
   return (
     <div>
-      {/* Header */}
-      <div style={{ marginBottom: 24, animation: "fadeInDown 300ms ease-out both" }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700, marginBottom: 6 }}>
           Profile Pins
         </h1>
-        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 520 }}>
-          Your profile shows these pinned items. Drag to reorder. Click × to remove. Click + to add from your repos.
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+          Drag to reorder. GitHub allows up to 6 pins.
         </p>
       </div>
 
-      {/* Loading */}
-      {pinsLoading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="animate-shimmer" style={{
-              height: 120, borderRadius: "var(--radius-lg)",
-              animation: `fadeInUp 250ms ease-out ${i * 40}ms both`,
-            }} />
-          ))}
-        </div>
-      )}
-
-      {/* Pin grid */}
-      {!pinsLoading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>
-          {pins.map((pin, i) => (
-            <div
-              key={pin.id}
-              draggable
-              onDragStart={() => handleDragStart(i)}
-              onDragOver={(e) => handleDragOver(e, i)}
-              onDragEnd={handleDragEnd}
-              style={{
-                background: "var(--bg-surface)",
-                border: `1px solid ${dragIndex === i ? "var(--accent-primary)" : "var(--border-subtle)"}`,
-                borderRadius: "var(--radius-lg)",
-                padding: "16px 20px",
-                cursor: "grab",
-                transition: "all var(--transition-base)",
-                transform: dragIndex === i ? "scale(1.02)" : "scale(1)",
-                boxShadow: dragIndex === i ? "var(--shadow-md)" : "none",
-                animation: `fadeInUp 250ms ease-out ${i * 60}ms both`,
-                position: "relative",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-default)"
-              }}
-              onMouseLeave={(e) => {
-                if (dragIndex !== i) e.currentTarget.style.borderColor = "var(--border-subtle)"
-              }}
-            >
-              {/* Drag handle */}
-              <div style={{ position: "absolute", top: 14, left: 8, color: "var(--text-muted)", cursor: "grab" }}>
-                <GripVertical size={14} />
-              </div>
-
-              {/* Remove button */}
-              <button
-                onClick={() => removePin(pin.id)}
-                style={{
-                  position: "absolute", top: 10, right: 10,
-                  color: "var(--text-muted)", padding: 4, borderRadius: "var(--radius-sm)",
-                  transition: "all var(--transition-fast)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "var(--accent-danger)"
-                  e.currentTarget.style.background = "var(--accent-danger-glow)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "var(--text-muted)"
-                  e.currentTarget.style.background = "transparent"
-                }}
-              >
-                <X size={14} />
-              </button>
-
-              <div style={{ paddingLeft: 16 }}>
-                <h3 style={{
-                  fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", fontWeight: 600,
-                  color: "var(--text-primary)", marginBottom: 6, paddingRight: 24,
-                }}>
-                  {pin.name}
-                </h3>
-                {pin.description && (
-                  <p style={{
-                    fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.5,
-                    marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical", overflow: "hidden",
-                  }}>
-                    {pin.description}
-                  </p>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                  {pin.primaryLanguage && (
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <Circle size={7} fill={pin.primaryLanguage.color} stroke="none" />
-                      {pin.primaryLanguage.name}
-                    </span>
-                  )}
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Star size={11} /> {pin.stargazerCount}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Add pin slot */}
-          {pins.length < 6 && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              style={{
-                background: "transparent",
-                border: "2px dashed var(--border-default)",
-                borderRadius: "var(--radius-lg)",
-                padding: "32px 20px",
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 8,
-                color: "var(--text-muted)",
-                transition: "all var(--transition-base)",
-                minHeight: 120,
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--accent-primary)"
-                e.currentTarget.style.color = "var(--accent-primary)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-default)"
-                e.currentTarget.style.color = "var(--text-muted)"
-              }}
-            >
-              <Plus size={24} />
-              <span style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>Add Pin</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Save button */}
-      {hasChanges && (
-        <div style={{ animation: "fadeInUp 250ms ease-out both" }}>
-          <button
-            onClick={handleSave}
-            disabled={saving}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>
+        {pins.map((pin, i) => (
+          <div
+            key={pin.id}
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={handleDragOver}
+            onDrop={() => handleDrop(i)}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "12px 28px",
-              background: "var(--accent-primary)", color: "var(--text-inverse)",
-              fontFamily: "var(--font-body)", fontSize: "var(--text-base)", fontWeight: 600,
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
               borderRadius: "var(--radius-lg)",
-              boxShadow: "var(--shadow-md)", transition: "all var(--transition-base)",
-              opacity: saving ? 0.6 : 1,
-              cursor: saving ? "wait" : "pointer",
-            }}
-            onMouseEnter={(e) => {
-              if (!saving) e.currentTarget.style.background = "var(--accent-primary-dim)"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--accent-primary)"
+              padding: "16px 20px",
+              cursor: "grab",
+              position: "relative",
+              opacity: dragIndex === i ? 0.5 : 1,
             }}
           >
-            <Save size={16} />
-            {saving ? "Saving..." : "Save Pins"}
+            <div style={{ position: "absolute", top: 14, left: 8, color: "var(--text-muted)" }}>
+              <GripVertical size={14} />
+            </div>
+            <button
+              onClick={() => removePin(pin.id)}
+              style={{ position: "absolute", top: 10, right: 10, color: "var(--text-muted)", padding: 4 }}
+            >
+              <X size={14} />
+            </button>
+            <div style={{ paddingLeft: 16 }}>
+              <h3 style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
+                {pin.name}
+              </h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 8 }}>
+                {pin.primaryLanguage && <span>{pin.primaryLanguage.name}</span>}
+                <span><Star size={11} style={{ verticalAlign: "middle" }} /> {pin.stargazerCount}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {pins.length < 6 && !pinsLoading && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              border: "2px dashed var(--border-default)", borderRadius: "var(--radius-lg)",
+              padding: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+              color: "var(--text-muted)", cursor: "pointer",
+            }}
+          >
+            <Plus size={24} />
+            <span>Add Pin</span>
           </button>
-        </div>
+        )}
+      </div>
+
+      {hasChanges && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            padding: "12px 28px", background: "var(--accent-primary)", color: "var(--text-inverse)",
+            fontWeight: 600, borderRadius: "var(--radius-lg)", opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? "Saving..." : "Save Pins"}
+        </button>
       )}
 
-      {/* Add pin modal */}
       {showAddModal && (
-        <AddPinModal
-          repos={availableRepos}
-          onAdd={addPin}
-          onClose={() => setShowAddModal(false)}
-        />
+        <AddPinModal repos={availableRepos} onAdd={addPin} onClose={() => setShowAddModal(false)} />
       )}
     </div>
   )
 }
 
-function AddPinModal({
-  repos, onAdd, onClose,
-}: {
-  repos: Pin[]; onAdd: (pin: Pin) => void; onClose: () => void;
-}) {
+function AddPinModal({ repos, onAdd, onClose }: any) {
   const [search, setSearch] = useState("")
-
-  const filtered = useMemo(() => {
-    if (!search) return repos
-    const q = search.toLowerCase()
-    return repos.filter(
-      (r) => r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
-    )
-  }, [repos, search])
+  const filtered = repos.filter((r: any) => r.name.toLowerCase().includes(search.toLowerCase()))
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", animation: "fadeIn 200ms ease-out" }} />
-      <div style={{
-        position: "relative", background: "var(--bg-elevated)",
-        border: "1px solid var(--border-default)", borderRadius: "var(--radius-xl)",
-        padding: "24px", maxWidth: 500, width: "100%", maxHeight: "70vh",
-        display: "flex", flexDirection: "column", animation: "scaleIn 200ms ease-out",
-      }}>
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", fontWeight: 700, marginBottom: 16 }}>
-          Add Pin
-        </h2>
-
-        <div style={{
-          display: "flex", alignItems: "center", gap: 6, background: "var(--bg-surface)",
-          borderRadius: "var(--radius-md)", padding: "8px 12px",
-          border: "1px solid var(--border-subtle)", marginBottom: 16,
-        }}>
-          <Search size={14} color="var(--text-muted)" />
-          <input
-            type="text" placeholder="Search your repos..." value={search}
-            onChange={(e) => setSearch(e.target.value)} autoFocus
-            style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}
-          />
-        </div>
-
-        <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          {filtered.map((repo) => (
-            <button
-              key={repo.id} onClick={() => onAdd(repo)}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                background: "transparent", borderRadius: "var(--radius-md)",
-                textAlign: "left", transition: "background var(--transition-fast)", width: "100%",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              <Plus size={14} color="var(--accent-primary)" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
-                  {repo.name}
-                </div>
-                {repo.description && (
-                  <div style={{
-                    fontSize: "var(--text-xs)", color: "var(--text-muted)",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>
-                    {repo.description}
-                  </div>
-                )}
-              </div>
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3 }}>
-                <Star size={10} /> {repo.stargazerCount}
-              </span>
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <p style={{ textAlign: "center", padding: 20, color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>
-              No repos found
-            </p>
-          )}
-        </div>
-
-        <button
-          onClick={onClose}
-          style={{
-            marginTop: 16, padding: "10px", fontSize: "var(--text-sm)", fontWeight: 600,
-            color: "var(--text-secondary)", background: "var(--bg-surface)",
-            border: "1px solid var(--border-default)", borderRadius: "var(--radius-md)",
-            transition: "all var(--transition-fast)", width: "100%",
-          }}
-        >
-          Cancel
-        </button>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} />
+      <div style={{ position: "relative", background: "var(--bg-elevated)", padding: 24, borderRadius: 16, width: "100%", maxWidth: 400, maxHeight: "80vh", overflow: "auto" }}>
+        <h2 style={{ marginBottom: 16 }}>Add Pin</h2>
+        <input
+          type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)}
+          style={{ width: "100%", padding: 10, background: "var(--bg-surface)", border: "1px solid var(--border-default)", borderRadius: 8, marginBottom: 16 }}
+        />
+        {filtered.map((repo: any) => (
+          <button key={repo.id} onClick={() => onAdd(repo)} style={{ width: "100%", textAlign: "left", padding: 10, borderRadius: 8, display: "flex", justifyContent: "space-between" }}>
+            <span>{repo.name}</span>
+            <Plus size={14} />
+          </button>
+        ))}
+        <button onClick={onClose} style={{ width: "100%", marginTop: 16, padding: 10 }}>Cancel</button>
       </div>
     </div>
   )
