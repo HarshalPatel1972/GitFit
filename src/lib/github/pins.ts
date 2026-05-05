@@ -23,9 +23,10 @@ const GET_PINNED_ITEMS = `
 `
 
 const UPDATE_PINNED_ITEMS = `
-  mutation($ids: [ID!]!) {
-    updateUserPinnedItems(input: { pinnedRepositoryIds: $ids }) {
+  mutation SetPins($ids: [ID!]!) {
+    setPinnedItems(input: { itemIds: $ids, type: REPOSITORY }) {
       user {
+        id
         pinnedItems(first: 6, types: [REPOSITORY]) {
           nodes {
             ... on Repository {
@@ -73,7 +74,6 @@ export async function fetchPinnableRepos(): Promise<Pin[]> {
   if (!session?.accessToken) throw new Error("Not authenticated")
 
   try {
-    // We increase affiliations to ensure we see all repos the user can pin
     const data = await graphqlFetch(session.accessToken, GET_PINNABLE_REPOS, { first: 100 })
     return (data.viewer.repositories.nodes || []) as Pin[]
   } catch (error) {
@@ -87,18 +87,16 @@ export async function updatePins(repositoryIds: string[]) {
   if (!session?.accessToken) return { success: false, error: "Not authenticated" }
 
   try {
-    // Ensure we only pass up to 6 IDs as per GitHub limit
     const idsToPin = repositoryIds.slice(0, 6)
-    
+    // Using the correct 'setPinnedItems' mutation
     const result = await graphqlFetch(session.accessToken, UPDATE_PINNED_ITEMS, { ids: idsToPin })
     
-    // Check if the returned pins match what we sent
-    const newPins = result.updateUserPinnedItems.user.pinnedItems.nodes || []
+    const newPins = result.setPinnedItems.user.pinnedItems.nodes || []
     console.log("GitHub confirmed pins:", newPins.map((p: any) => p.name))
     
     return { success: true, count: newPins.length }
   } catch (error: any) {
-    console.error("updatePins error:", error.message)
+    console.error("updatePins server-side error:", error.message)
     return { success: false, error: error.message }
   }
 }
