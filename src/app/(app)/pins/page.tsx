@@ -69,7 +69,7 @@ export default function PinsPage() {
 
   // Simplified Drag and Drop
   const handleDragStart = (index: number) => setDragIndex(index)
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
   }
   const handleDrop = (index: number) => {
