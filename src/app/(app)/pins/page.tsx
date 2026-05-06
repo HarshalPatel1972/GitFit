@@ -40,7 +40,6 @@ export default function PinsPage() {
   const [showWhyModal, setShowWhyModal] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
-  // Sync remote data or load from LocalStorage
   useEffect(() => {
     if (typeof window === 'undefined') return
     const saved = localStorage.getItem(`gitfit_pins_${session?.user?.email}`)
@@ -78,23 +77,35 @@ export default function PinsPage() {
     setShowAddModal(false)
   }, [])
 
-  // Restoring the high-performance drag logic from commit 0e44f757
-  const handleDragStart = (index: number) => setDragIndex(index)
+  // REFINED STABLE LOGIC
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index)
+    // CRITICAL: Some browsers (Chrome/Firefox) require this to initiate a drag-and-drop session
+    e.dataTransfer.setData("text/plain", index.toString())
+    e.dataTransfer.effectAllowed = "move"
+    
+    // Optional: add a slight delay to the opacity change to avoid a flicking effect
+    e.currentTarget.style.cursor = "grabbing"
+  }
   
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
+    e.preventDefault() // Necessary for drop/over to work
     if (dragIndex === null || dragIndex === index) return
+    
     setLocalPins((prev) => {
       if (!prev) return prev
       const newPins = [...prev]
       const [moved] = newPins.splice(dragIndex, 1)
       newPins.splice(index, 0, moved)
-      setDragIndex(index) // Important for smooth tracking
+      setDragIndex(index) 
       return newPins
     })
   }
 
-  const handleDragEnd = () => setDragIndex(null)
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDragIndex(null)
+    e.currentTarget.style.cursor = "grab"
+  }
 
   const handleSave = () => {
     if (!localPins) return
@@ -112,8 +123,7 @@ export default function PinsPage() {
 
   return (
     <div>
-      {/* Header with Why? Link */}
-      <div style={{ marginBottom: 32, animation: "fadeInDown 300ms ease-out both" }}>
+      <div style={{ marginBottom: 32 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700 }}>
             Dashboard Pins
@@ -124,8 +134,7 @@ export default function PinsPage() {
               display: "flex", alignItems: "center", gap: 4, 
               fontSize: "var(--text-xs)", color: "var(--accent-primary)",
               background: "var(--accent-glow)", padding: "4px 10px",
-              borderRadius: "var(--radius-full)", fontWeight: 600,
-              transition: "all var(--transition-fast)"
+              borderRadius: "var(--radius-full)", fontWeight: 600
             }}
           >
             <HelpCircle size={12} />
@@ -142,7 +151,7 @@ export default function PinsPage() {
           <div
             key={pin.id}
             draggable
-            onDragStart={() => handleDragStart(i)}
+            onDragStart={(e) => handleDragStart(e, i)}
             onDragOver={(e) => handleDragOver(e, i)}
             onDragEnd={handleDragEnd}
             style={{
@@ -150,14 +159,16 @@ export default function PinsPage() {
               border: "1px solid var(--border-subtle)",
               borderRadius: "var(--radius-lg)",
               padding: "20px 24px",
-              cursor: "grab",
+              cursor: dragIndex === i ? "grabbing" : "grab",
               position: "relative",
-              opacity: dragIndex === i ? 0.4 : 1,
-              transition: "border-color var(--transition-base), opacity var(--transition-base)",
+              opacity: dragIndex === i ? 0.3 : 1,
+              transition: "border-color 150ms ease, opacity 150ms ease",
               minHeight: 140,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between"
+              justifyContent: "space-between",
+              // Prevent child elements from stealing drag events
+              userSelect: "none"
             }}
             onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--border-default)"}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-subtle)"}
@@ -169,8 +180,6 @@ export default function PinsPage() {
             <button
               onClick={() => removePin(pin.id)}
               style={{ position: "absolute", top: 14, right: 14, color: "var(--text-muted)", padding: 4 }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-danger)"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
             >
               <X size={16} />
             </button>
@@ -214,8 +223,6 @@ export default function PinsPage() {
               color: "var(--text-muted)", cursor: "pointer", background: "transparent",
               transition: "all var(--transition-fast)", minHeight: 140, justifyContent: "center"
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--accent-primary)"}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-default)"}
           >
             <Plus size={24} />
             <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Pin Repository</span>
@@ -240,12 +247,10 @@ export default function PinsPage() {
         </div>
       )}
 
-      {/* Add pin modal */}
       {showAddModal && (
         <AddPinModal repos={availableRepos} onAdd={addPin} onClose={() => setShowAddModal(false)} />
       )}
 
-      {/* Why modal */}
       {showWhyModal && (
         <WhyModal onClose={() => setShowWhyModal(false)} />
       )}
