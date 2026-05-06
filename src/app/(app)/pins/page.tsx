@@ -85,7 +85,7 @@ export default function PinsPage() {
     e.dataTransfer.effectAllowed = "move"
     
     // Optional: add a slight delay to the opacity change to avoid a flicking effect
-    e.currentTarget.style.cursor = "grabbing"
+    ;(e.currentTarget as HTMLElement).style.cursor = "grabbing"
   }
   
   const handleDragOver = (e: React.DragEvent, index: number) => {
@@ -104,7 +104,7 @@ export default function PinsPage() {
 
   const handleDragEnd = (e: React.DragEvent) => {
     setDragIndex(null)
-    e.currentTarget.style.cursor = "grab"
+    ;(e.currentTarget as HTMLElement).style.cursor = "grab"
   }
 
   const handleSave = () => {
@@ -170,8 +170,8 @@ export default function PinsPage() {
               // Prevent child elements from stealing drag events
               userSelect: "none"
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--border-default)"}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-subtle)"}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border-default)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)")}
           >
             <div style={{ position: "absolute", top: 22, left: 8, color: "var(--text-muted)" }}>
               <GripVertical size={14} />
@@ -350,8 +350,8 @@ function AddPinModal({ repos, onAdd, onClose }: any) {
                 display: "flex", flexDirection: "column", gap: 4,
                 transition: "all var(--transition-fast)", background: "transparent"
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--bg-hover)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{repo.name}</span>
