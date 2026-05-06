@@ -11,7 +11,8 @@ import {
   Save,
   HelpCircle,
   Info,
-  ExternalLink
+  ExternalLink,
+  Circle
 } from "lucide-react"
 import { fetchPinnedItems, fetchPinnableRepos } from "@/lib/github/pins"
 import { useToast } from "@/components/ui/Toast"
