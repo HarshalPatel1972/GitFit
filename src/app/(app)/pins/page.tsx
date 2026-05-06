@@ -77,13 +77,27 @@ export default function PinsPage() {
     setShowAddModal(false)
   }, [])
 
-  const handleDragStart = (index: number) => setDragIndex(index)
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault()
-  const handleDrop = (index: number) => {
+  // Robust Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = "move"
+    // Required for some browsers to initiate drag
+    e.dataTransfer.setData("text/plain", index.toString())
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
     if (dragIndex === null || dragIndex === index) return
+    
     const newPins = [...pins]
     const [moved] = newPins.splice(dragIndex, 1)
     newPins.splice(index, 0, moved)
+    
     setLocalPins(newPins)
     setDragIndex(null)
   }
@@ -135,9 +149,9 @@ export default function PinsPage() {
           <div
             key={pin.id}
             draggable
-            onDragStart={() => handleDragStart(i)}
+            onDragStart={(e) => handleDragStart(e, i)}
             onDragOver={handleDragOver}
-            onDrop={() => handleDrop(i)}
+            onDrop={(e) => handleDrop(e, i)}
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border-subtle)",
