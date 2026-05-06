@@ -38,7 +38,7 @@ export default function PinsPage() {
   const [localPins, setLocalPins] = useState<Pin[] | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showWhyModal, setShowWhyModal] = useState(false)
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -77,34 +77,38 @@ export default function PinsPage() {
     setShowAddModal(false)
   }, [])
 
-  // REFINED STABLE LOGIC
+  // ROCK SOLID DRAG AND DROP
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDragIndex(index)
-    // CRITICAL: Some browsers (Chrome/Firefox) require this to initiate a drag-and-drop session
+    setDraggedIndex(index)
     e.dataTransfer.setData("text/plain", index.toString())
     e.dataTransfer.effectAllowed = "move"
-    
-    // Optional: add a slight delay to the opacity change to avoid a flicking effect
-    ;(e.currentTarget as HTMLElement).style.cursor = "grabbing"
-  }
-  
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault() // Necessary for drop/over to work
-    if (dragIndex === null || dragIndex === index) return
-    
-    setLocalPins((prev) => {
-      if (!prev) return prev
-      const newPins = [...prev]
-      const [moved] = newPins.splice(dragIndex, 1)
-      newPins.splice(index, 0, moved)
-      setDragIndex(index) 
-      return newPins
-    })
+    ;(e.currentTarget as HTMLElement).style.opacity = "0.4"
   }
 
   const handleDragEnd = (e: React.DragEvent) => {
-    setDragIndex(null)
-    ;(e.currentTarget as HTMLElement).style.cursor = "grab"
+    setDraggedIndex(null)
+    ;(e.currentTarget as HTMLElement).style.opacity = "1"
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    return false
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"), 10)
+    
+    if (sourceIndex === targetIndex) return
+
+    const newPins = [...pins]
+    const [moved] = newPins.splice(sourceIndex, 1)
+    newPins.splice(targetIndex, 0, moved)
+    
+    setLocalPins(newPins)
+    setDraggedIndex(null)
+    return false
   }
 
   const handleSave = () => {
@@ -152,22 +156,21 @@ export default function PinsPage() {
             key={pin.id}
             draggable
             onDragStart={(e) => handleDragStart(e, i)}
-            onDragOver={(e) => handleDragOver(e, i)}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
+            onDrop={(e) => handleDrop(e, i)}
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border-subtle)",
               borderRadius: "var(--radius-lg)",
               padding: "20px 24px",
-              cursor: dragIndex === i ? "grabbing" : "grab",
+              cursor: "grab",
               position: "relative",
-              opacity: dragIndex === i ? 0.3 : 1,
-              transition: "border-color 150ms ease, opacity 150ms ease",
+              transition: "all var(--transition-base)",
               minHeight: 140,
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              // Prevent child elements from stealing drag events
               userSelect: "none"
             }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = "var(--border-default)")}
