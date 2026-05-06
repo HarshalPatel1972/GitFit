@@ -77,28 +77,35 @@ export default function PinsPage() {
     setShowAddModal(false)
   }, [])
 
-  // Robust Drag and Drop Handlers
+  // LIVE REORDER LOGIC
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDragIndex(index)
     e.dataTransfer.effectAllowed = "move"
-    // Required for some browsers to initiate drag
     e.dataTransfer.setData("text/plain", index.toString())
+    
+    // Create a transparent drag ghost
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement
+    ghost.style.opacity = "0.5"
+    ghost.style.position = "absolute"
+    ghost.style.top = "-1000px"
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 0, 0)
+    setTimeout(() => document.body.removeChild(ghost), 0)
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-  }
-
-  const handleDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
+  const handleDragEnter = (index: number) => {
     if (dragIndex === null || dragIndex === index) return
     
     const newPins = [...pins]
-    const [moved] = newPins.splice(dragIndex, 1)
-    newPins.splice(index, 0, moved)
+    const item = newPins[dragIndex]
+    newPins.splice(dragIndex, 1)
+    newPins.splice(index, 0, item)
     
     setLocalPins(newPins)
+    setDragIndex(index)
+  }
+
+  const handleDragEnd = () => {
     setDragIndex(null)
   }
 
@@ -150,8 +157,9 @@ export default function PinsPage() {
             key={pin.id}
             draggable
             onDragStart={(e) => handleDragStart(e, i)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, i)}
+            onDragEnter={() => handleDragEnter(i)}
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => e.preventDefault()}
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border-subtle)",
@@ -159,12 +167,14 @@ export default function PinsPage() {
               padding: "20px 24px",
               cursor: "grab",
               position: "relative",
-              opacity: dragIndex === i ? 0.5 : 1,
-              transition: "all var(--transition-base)",
+              opacity: dragIndex === i ? 0.3 : 1,
+              transform: dragIndex === i ? "scale(0.98)" : "scale(1)",
+              transition: "transform 150ms ease, opacity 150ms ease, border-color 150ms ease",
               minHeight: 140,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between"
+              justifyContent: "space-between",
+              zIndex: dragIndex === i ? 10 : 1
             }}
             onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--border-default)"}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-subtle)"}
