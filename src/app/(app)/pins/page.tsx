@@ -40,6 +40,7 @@ export default function PinsPage() {
   const [showWhyModal, setShowWhyModal] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
+  // Sync remote data or load from LocalStorage
   useEffect(() => {
     if (typeof window === 'undefined') return
     const saved = localStorage.getItem(`gitfit_pins_${session?.user?.email}`)
@@ -77,42 +78,28 @@ export default function PinsPage() {
     setShowAddModal(false)
   }, [])
 
-  // LIVE REORDER LOGIC
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDragIndex(index)
-    e.dataTransfer.effectAllowed = "move"
-    e.dataTransfer.setData("text/plain", index.toString())
-    
-    // Create a transparent drag ghost
-    const ghost = e.currentTarget.cloneNode(true) as HTMLElement
-    ghost.style.opacity = "0.5"
-    ghost.style.position = "absolute"
-    ghost.style.top = "-1000px"
-    document.body.appendChild(ghost)
-    e.dataTransfer.setDragImage(ghost, 0, 0)
-    setTimeout(() => document.body.removeChild(ghost), 0)
-  }
-
-  const handleDragEnter = (index: number) => {
+  // Restoring the high-performance drag logic from commit 0e44f757
+  const handleDragStart = (index: number) => setDragIndex(index)
+  
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
     if (dragIndex === null || dragIndex === index) return
-    
-    const newPins = [...pins]
-    const item = newPins[dragIndex]
-    newPins.splice(dragIndex, 1)
-    newPins.splice(index, 0, item)
-    
-    setLocalPins(newPins)
-    setDragIndex(index)
+    setLocalPins((prev) => {
+      if (!prev) return prev
+      const newPins = [...prev]
+      const [moved] = newPins.splice(dragIndex, 1)
+      newPins.splice(index, 0, moved)
+      setDragIndex(index) // Important for smooth tracking
+      return newPins
+    })
   }
 
-  const handleDragEnd = () => {
-    setDragIndex(null)
-  }
+  const handleDragEnd = () => setDragIndex(null)
 
   const handleSave = () => {
     if (!localPins) return
     localStorage.setItem(`gitfit_pins_${session?.user?.email}`, JSON.stringify(localPins))
-    addToast({ type: "success", message: "Dashboard pins saved!" })
+    addToast({ type: "success", message: "Dashboard layout saved!" })
   }
 
   const availableRepos = useMemo(() => {
@@ -125,7 +112,7 @@ export default function PinsPage() {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header with Why? Link */}
       <div style={{ marginBottom: 32, animation: "fadeInDown 300ms ease-out both" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700 }}>
@@ -150,16 +137,14 @@ export default function PinsPage() {
         </p>
       </div>
 
-      {/* Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
         {pins.map((pin, i) => (
           <div
             key={pin.id}
             draggable
-            onDragStart={(e) => handleDragStart(e, i)}
-            onDragEnter={() => handleDragEnter(i)}
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={(e) => handleDragOver(e, i)}
             onDragEnd={handleDragEnd}
-            onDragOver={(e) => e.preventDefault()}
             style={{
               background: "var(--bg-surface)",
               border: "1px solid var(--border-subtle)",
@@ -167,14 +152,12 @@ export default function PinsPage() {
               padding: "20px 24px",
               cursor: "grab",
               position: "relative",
-              opacity: dragIndex === i ? 0.3 : 1,
-              transform: dragIndex === i ? "scale(0.98)" : "scale(1)",
-              transition: "transform 150ms ease, opacity 150ms ease, border-color 150ms ease",
+              opacity: dragIndex === i ? 0.4 : 1,
+              transition: "border-color var(--transition-base), opacity var(--transition-base)",
               minHeight: 140,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between",
-              zIndex: dragIndex === i ? 10 : 1
+              justifyContent: "space-between"
             }}
             onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--border-default)"}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-subtle)"}
@@ -257,10 +240,12 @@ export default function PinsPage() {
         </div>
       )}
 
+      {/* Add pin modal */}
       {showAddModal && (
         <AddPinModal repos={availableRepos} onAdd={addPin} onClose={() => setShowAddModal(false)} />
       )}
 
+      {/* Why modal */}
       {showWhyModal && (
         <WhyModal onClose={() => setShowWhyModal(false)} />
       )}
@@ -288,13 +273,13 @@ function WhyModal({ onClose }: { onClose: () => void }) {
         
         <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.8, display: "flex", flexDirection: "column", gap: 20 }}>
           <p>
-            You might have noticed that changes to your pins here don't show up on your public GitHub profile. This is because GitHub currently manages profile pins through <strong>internal, private APIs</strong> that are not exposed to third-party developers or OAuth applications.
+            GitHub currently manages profile pins through <strong>internal, private APIs</strong> that are not exposed to third-party applications.
           </p>
           <p>
-            Because these endpoints are restricted to GitHub's official web interface, third-party tools like GitFit can help you organize your work internally, but we cannot "push" those changes to your public profile yet.
+            Because these endpoints are restricted, GitFit helps you organize your workbench internally, but we cannot push these changes to your public GitHub profile.
           </p>
           <p>
-            We've built <strong>Dashboard Pins</strong> to give you a high-velocity, curated view of your most important repositories right here in your workbench, independent of your public profile layout.
+            We've built <strong>Dashboard Pins</strong> to give you a high-velocity, curated view of your most important repositories right here, independent of your public profile layout.
           </p>
           
           <div style={{ 
