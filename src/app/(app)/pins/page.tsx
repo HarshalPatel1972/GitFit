@@ -42,6 +42,7 @@ export default function PinsPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (localPins !== null) return
     const saved = localStorage.getItem(`gitfit_pins_${session?.user?.email}`)
     if (saved) {
       try {
