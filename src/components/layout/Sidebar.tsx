@@ -54,6 +54,7 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
       >
         <Link
           href="/dashboard"
+          className="gitfit-logo"
           style={{
             fontFamily: "var(--font-display)",
             fontSize: "var(--text-xl)",

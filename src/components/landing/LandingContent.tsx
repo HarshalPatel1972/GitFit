@@ -30,6 +30,7 @@ export function LandingContent({ signInAction }: LandingContentProps) {
         }}
       >
         <h1
+          className="gitfit-logo"
           style={{
             fontFamily: "var(--font-display)",
             fontSize: "var(--text-4xl)",
