@@ -54,7 +54,7 @@ export function RepoCard({
         style={{
           position: "absolute",
           top: 12,
-          left: 12,
+          right: 12,
           opacity: showCheckbox ? 1 : 0,
           transform: showCheckbox ? "scale(1)" : "scale(0.8)",
           transition: "all var(--transition-fast)",
@@ -89,7 +89,7 @@ export function RepoCard({
       </div>
 
       {/* Content */}
-      <div style={{ paddingLeft: showCheckbox ? 28 : 0, transition: "padding var(--transition-fast)" }}>
+      <div style={{ paddingRight: showCheckbox ? 28 : 0, transition: "padding var(--transition-fast)" }}>
         {/* Name + badges */}
         <div
           style={{
