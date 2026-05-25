@@ -22,15 +22,16 @@ const navItems = [
 interface SidebarProps {
   currentPath: string
   onClose?: () => void
+  isCollapsed?: boolean
 }
 
-export function Sidebar({ currentPath, onClose }: SidebarProps) {
+export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarProps) {
   const { data: session } = useSession()
 
   return (
     <aside
       style={{
-        width: 240,
+        width: isCollapsed ? 64 : 240,
         height: "100vh",
         position: onClose ? "relative" : "fixed",
         top: 0,
@@ -41,15 +42,17 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
         flexDirection: "column",
         zIndex: 100,
         overflow: "hidden",
+        transition: "width var(--transition-slow)",
       }}
     >
       {/* Logo */}
       <div
         style={{
-          padding: "24px 20px 20px",
+          padding: isCollapsed ? "24px 0 20px" : "24px 20px 20px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: isCollapsed ? "center" : "space-between",
+          height: 77,
         }}
       >
         <Link
@@ -57,15 +60,15 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
           className="gitfit-logo"
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "var(--text-xl)",
+            fontSize: isCollapsed ? "var(--text-lg)" : "var(--text-xl)",
             fontWeight: 900,
             color: "var(--accent-primary)",
             letterSpacing: "-0.02em",
           }}
         >
-          GitFit
+          {isCollapsed ? "GF" : "GitFit"}
         </Link>
-        {onClose && (
+        {onClose && !isCollapsed && (
           <button
             onClick={onClose}
             style={{ color: "var(--text-muted)", padding: 4 }}
@@ -80,23 +83,25 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
         style={{
           height: 1,
           background: "var(--border-subtle)",
-          margin: "0 16px",
+          margin: isCollapsed ? "0 8px" : "0 16px",
         }}
       />
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 8px" }}>
+      <nav style={{ flex: 1, padding: isCollapsed ? "12px 4px" : "12px 8px" }}>
         {navItems.map((item) => {
           const isActive = currentPath.startsWith(item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={isCollapsed ? item.label : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                padding: "10px 14px",
+                justifyContent: isCollapsed ? "center" : "flex-start",
+                gap: isCollapsed ? 0 : 12,
+                padding: isCollapsed ? "10px 0" : "10px 14px",
                 borderRadius: "var(--radius-md)",
                 fontSize: "var(--text-sm)",
                 fontWeight: isActive ? 600 : 400,
@@ -104,9 +109,12 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
                   ? "var(--text-primary)"
                   : "var(--text-secondary)",
                 background: isActive ? "var(--bg-hover)" : "transparent",
-                borderLeft: isActive
+                borderLeft: isCollapsed
+                  ? "none"
+                  : isActive
                   ? "3px solid var(--accent-primary)"
                   : "3px solid transparent",
+                borderRight: isCollapsed && isActive ? "3px solid var(--accent-primary)" : "none",
                 transition: "all var(--transition-fast)",
                 marginBottom: 2,
               }}
@@ -120,7 +128,7 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
               }}
             >
               <item.icon size={18} />
-              {item.label}
+              {!isCollapsed && item.label}
             </Link>
           )
         })}
@@ -129,17 +137,19 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
           style={{
             height: 1,
             background: "var(--border-subtle)",
-            margin: "12px 8px",
+            margin: isCollapsed ? "12px 4px" : "12px 8px",
           }}
         />
 
         <Link
           href="/settings"
+          title={isCollapsed ? "Settings" : undefined}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            padding: "10px 14px",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            gap: isCollapsed ? 0 : 12,
+            padding: isCollapsed ? "10px 0" : "10px 14px",
             borderRadius: "var(--radius-md)",
             fontSize: "var(--text-sm)",
             color: currentPath.startsWith("/settings")
@@ -148,9 +158,12 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
             background: currentPath.startsWith("/settings")
               ? "var(--bg-hover)"
               : "transparent",
-            borderLeft: currentPath.startsWith("/settings")
+            borderLeft: isCollapsed
+              ? "none"
+              : currentPath.startsWith("/settings")
               ? "3px solid var(--accent-primary)"
               : "3px solid transparent",
+            borderRight: isCollapsed && currentPath.startsWith("/settings") ? "3px solid var(--accent-primary)" : "none",
             transition: "all var(--transition-fast)",
           }}
           onMouseEnter={(e) => {
@@ -163,7 +176,7 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
           }}
         >
           <Settings size={18} />
-          Settings
+          {!isCollapsed && "Settings"}
         </Link>
       </nav>
 
@@ -172,16 +185,17 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
         style={{
           height: 1,
           background: "var(--border-subtle)",
-          margin: "0 16px",
+          margin: isCollapsed ? "0 8px" : "0 16px",
         }}
       />
 
       {/* User section */}
       <div
         style={{
-          padding: "16px 16px 20px",
+          padding: isCollapsed ? "16px 4px 20px" : "16px 16px 20px",
           display: "flex",
           flexDirection: "column",
+          alignItems: isCollapsed ? "center" : "stretch",
           gap: 10,
         }}
       >
@@ -190,7 +204,8 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              justifyContent: isCollapsed ? "center" : "flex-start",
+              gap: isCollapsed ? 0 : 10,
             }}
           >
             {session.user.image && (
@@ -205,32 +220,37 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
                 }}
               />
             )}
-            <span
-              style={{
-                fontSize: "var(--text-sm)",
-                fontWeight: 500,
-                color: "var(--text-primary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {session.user.name || session.user.email}
-            </span>
+            {!isCollapsed && (
+              <span
+                style={{
+                  fontSize: "var(--text-sm)",
+                  fontWeight: 500,
+                  color: "var(--text-primary)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {session.user.name || session.user.email}
+              </span>
+            )}
           </div>
         )}
 
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
+          title={isCollapsed ? "Sign out" : undefined}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            padding: "8px 12px",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            gap: isCollapsed ? 0 : 8,
+            padding: isCollapsed ? "8px 0" : "8px 12px",
             fontSize: "var(--text-sm)",
             color: "var(--text-muted)",
             borderRadius: "var(--radius-md)",
             transition: "all var(--transition-fast)",
+            width: "100%",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "var(--accent-danger)"
@@ -242,7 +262,7 @@ export function Sidebar({ currentPath, onClose }: SidebarProps) {
           }}
         >
           <LogOut size={16} />
-          Sign out
+          {!isCollapsed && "Sign out"}
         </button>
       </div>
     </aside>

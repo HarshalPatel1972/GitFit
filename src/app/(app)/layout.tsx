@@ -38,20 +38,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {/* Desktop sidebar */}
       {!isMobile && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 240,
-            transform: desktopSidebarOpen ? "translateX(0)" : "translateX(-240px)",
-            transition: "transform var(--transition-slow)",
-            zIndex: 100,
-          }}
-        >
-          <Sidebar currentPath={pathname} />
-        </div>
+        <Sidebar currentPath={pathname} isCollapsed={!desktopSidebarOpen} />
       )}
 
       {/* Desktop sidebar toggle button */}
@@ -62,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           style={{
             position: "fixed",
             top: 24,
-            left: desktopSidebarOpen ? 228 : 12,
+            left: desktopSidebarOpen ? 228 : 52,
             width: 24,
             height: 24,
             borderRadius: "var(--radius-full)",
@@ -128,7 +115,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           flex: 1,
           minWidth: 0,
           background: "var(--bg-canvas)",
-          marginLeft: isMobile ? 0 : (desktopSidebarOpen ? 240 : 0),
+          marginLeft: isMobile ? 0 : (desktopSidebarOpen ? 240 : 64),
           transition: "margin-left var(--transition-slow)",
         }}
       >
