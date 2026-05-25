@@ -6,11 +6,11 @@ import { useSession } from "next-auth/react"
 import {
   ExternalLink,
   Search,
-  ChevronDown,
   Clock,
   MessageSquare,
   Tag,
 } from "lucide-react"
+import { Select } from "@/components/ui/Select"
 import { fetchUserIssues, fetchUserPRs } from "@/lib/github/feed"
 import { bulkCloseIssues } from "@/lib/actions/feed"
 import { useSelection } from "@/hooks/useSelection"
@@ -189,55 +189,37 @@ export default function FeedPage() {
           />
         </div>
 
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <select
-            value={repoFilter} onChange={(e) => setRepoFilter(e.target.value)}
-            style={{
-              appearance: "none", padding: "6px 28px 6px 12px", fontSize: "var(--text-xs)",
-              fontFamily: "var(--font-body)", fontWeight: 500, color: "var(--text-secondary)",
-              background: "var(--bg-elevated)", borderRadius: "var(--radius-full)",
-              border: "1px solid var(--border-subtle)", cursor: "pointer",
-            }}
-          >
-            <option value="">All Repos</option>
-            {repos.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <ChevronDown size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }} />
-        </div>
+        <Select
+          value={repoFilter}
+          onChange={setRepoFilter}
+          options={[
+            { value: "", label: "All Repos" },
+            ...repos.map((r) => ({ value: r, label: r })),
+          ]}
+          variant="pill"
+        />
 
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <select
-            value={sort} onChange={(e) => setSort(e.target.value as "updated" | "created")}
-            style={{
-              appearance: "none", padding: "6px 28px 6px 12px", fontSize: "var(--text-xs)",
-              fontFamily: "var(--font-body)", fontWeight: 500, color: "var(--text-secondary)",
-              background: "var(--bg-elevated)", borderRadius: "var(--radius-full)",
-              border: "1px solid var(--border-subtle)", cursor: "pointer",
-            }}
-          >
-            <option value="updated">Updated</option>
-            <option value="created">Created</option>
-          </select>
-          <ChevronDown size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }} />
-        </div>
+        <Select
+          value={sort}
+          onChange={(val) => setSort(val as "updated" | "created")}
+          options={[
+            { value: "updated", label: "Updated" },
+            { value: "created", label: "Created" },
+          ]}
+          variant="pill"
+        />
 
         {tab === "stale" && (
-          <div style={{ position: "relative", display: "inline-flex" }}>
-            <select
-              value={staleThreshold} onChange={(e) => setStaleThreshold(Number(e.target.value))}
-              style={{
-                appearance: "none", padding: "6px 28px 6px 12px", fontSize: "var(--text-xs)",
-                fontFamily: "var(--font-body)", fontWeight: 500, color: "var(--text-secondary)",
-                background: "var(--bg-elevated)", borderRadius: "var(--radius-full)",
-                border: "1px solid var(--border-subtle)", cursor: "pointer",
-              }}
-            >
-              <option value={30}>30 days</option>
-              <option value={60}>60 days</option>
-              <option value={90}>90 days</option>
-            </select>
-            <ChevronDown size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }} />
-          </div>
+          <Select
+            value={staleThreshold}
+            onChange={(val) => setStaleThreshold(Number(val))}
+            options={[
+              { value: 30, label: "30 days" },
+              { value: 60, label: "60 days" },
+              { value: 90, label: "90 days" },
+            ]}
+            variant="pill"
+          />
         )}
       </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { signOut } from "next-auth/react"
 import { LogOut, Keyboard } from "lucide-react"
+import { Select } from "@/components/ui/Select"
 
 interface AppSettings {
   defaultSort: string
@@ -51,17 +52,18 @@ export default function SettingsPage() {
       {/* Dashboard */}
       <Section title="Dashboard">
         <SettingRow label="Default sort">
-          <select
+          <Select
             value={settings.defaultSort}
-            onChange={(e) => updateSetting("defaultSort", e.target.value)}
-            style={selectStyle}
-          >
-            <option value="updated">Last Updated</option>
-            <option value="name">Name</option>
-            <option value="stars">Stars</option>
-            <option value="size">Size</option>
-            <option value="created">Created</option>
-          </select>
+            onChange={(val) => updateSetting("defaultSort", val)}
+            options={[
+              { value: "updated", label: "Last Updated" },
+              { value: "name", label: "Name" },
+              { value: "stars", label: "Stars" },
+              { value: "size", label: "Size" },
+              { value: "created", label: "Created" },
+            ]}
+            variant="rect"
+          />
         </SettingRow>
 
         <SettingRow label="Default view">
@@ -94,15 +96,16 @@ export default function SettingsPage() {
       {/* Feed */}
       <Section title="Feed">
         <SettingRow label="Stale threshold">
-          <select
+          <Select
             value={settings.staleThreshold}
-            onChange={(e) => updateSetting("staleThreshold", Number(e.target.value))}
-            style={selectStyle}
-          >
-            <option value={30}>30 days</option>
-            <option value={60}>60 days</option>
-            <option value={90}>90 days</option>
-          </select>
+            onChange={(val) => updateSetting("staleThreshold", Number(val))}
+            options={[
+              { value: 30, label: "30 days" },
+              { value: 60, label: "60 days" },
+              { value: 90, label: "90 days" },
+            ]}
+            variant="rect"
+          />
         </SettingRow>
       </Section>
 
@@ -233,15 +236,4 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
   )
 }
 
-const selectStyle: React.CSSProperties = {
-  appearance: "none" as const,
-  padding: "6px 28px 6px 12px",
-  fontSize: "var(--text-sm)",
-  fontFamily: "var(--font-body)",
-  fontWeight: 500,
-  color: "var(--text-secondary)",
-  background: "var(--bg-elevated)",
-  borderRadius: "var(--radius-md)",
-  border: "1px solid var(--border-subtle)",
-  cursor: "pointer",
-}
+// selectStyle removed in favor of the Select component

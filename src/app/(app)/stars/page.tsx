@@ -3,7 +3,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { Star, Circle, ExternalLink, Search, ChevronDown } from "lucide-react"
+import { Star, Circle, ExternalLink, Search } from "lucide-react"
+import { Select } from "@/components/ui/Select"
 import { fetchAllStars } from "@/lib/github/stars"
 import { bulkUnstar } from "@/lib/actions/stars"
 import { useSelection } from "@/hooks/useSelection"
@@ -144,39 +145,27 @@ export default function StarsPage() {
         </div>
 
         {/* Language filter */}
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <select
-            value={language} onChange={(e) => setLanguage(e.target.value)}
-            style={{
-              appearance: "none", padding: "6px 28px 6px 12px", fontSize: "var(--text-xs)",
-              fontFamily: "var(--font-body)", fontWeight: 500, color: "var(--text-secondary)",
-              background: "var(--bg-elevated)", borderRadius: "var(--radius-full)",
-              border: "1px solid var(--border-subtle)", cursor: "pointer",
-            }}
-          >
-            <option value="">All Languages</option>
-            {languages.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <ChevronDown size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }} />
-        </div>
+        <Select
+          value={language}
+          onChange={setLanguage}
+          options={[
+            { value: "", label: "All Languages" },
+            ...languages.map((l) => ({ value: l, label: l })),
+          ]}
+          variant="pill"
+        />
 
         {/* Sort */}
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <select
-            value={sort} onChange={(e) => setSort(e.target.value as "recent" | "stars" | "name")}
-            style={{
-              appearance: "none", padding: "6px 28px 6px 12px", fontSize: "var(--text-xs)",
-              fontFamily: "var(--font-body)", fontWeight: 500, color: "var(--text-secondary)",
-              background: "var(--bg-elevated)", borderRadius: "var(--radius-full)",
-              border: "1px solid var(--border-subtle)", cursor: "pointer",
-            }}
-          >
-            <option value="recent">Recently Starred</option>
-            <option value="stars">Most Stars</option>
-            <option value="name">Name</option>
-          </select>
-          <ChevronDown size={12} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-muted)" }} />
-        </div>
+        <Select
+          value={sort}
+          onChange={(val) => setSort(val as "recent" | "stars" | "name")}
+          options={[
+            { value: "recent", label: "Recently Starred" },
+            { value: "stars", label: "Most Stars" },
+            { value: "name", label: "Name" },
+          ]}
+          variant="pill"
+        />
 
         {/* Forgotten preset */}
         <button
