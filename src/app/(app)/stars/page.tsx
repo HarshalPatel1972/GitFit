@@ -127,7 +127,7 @@ export default function StarsPage() {
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "12px 0",
         borderBottom: "1px solid var(--border-subtle)", marginBottom: 20,
-        overflowX: "auto", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 10,
+        flexWrap: "wrap", position: "sticky", top: 0, background: "var(--bg-canvas)", zIndex: 10,
         animation: "fadeInDown 300ms ease-out 80ms both",
       }}>
         {/* Search */}

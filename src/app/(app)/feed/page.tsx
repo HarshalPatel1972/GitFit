@@ -174,7 +174,7 @@ export default function FeedPage() {
       <div style={{
         display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
         borderBottom: "1px solid var(--border-subtle)", marginBottom: 16,
-        overflowX: "auto",
+        flexWrap: "wrap",
       }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 6, background: "var(--bg-elevated)",
