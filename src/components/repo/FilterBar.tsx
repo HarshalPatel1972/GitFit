@@ -1,6 +1,7 @@
 "use client"
 
-import { Search, ChevronDown } from "lucide-react"
+import { Search } from "lucide-react"
+import { Select } from "@/components/ui/Select"
 import type { Filters, Visibility, Status, SortOption, FilterPreset } from "@/types"
 
 interface FilterBarProps {
@@ -206,42 +207,11 @@ function FilterSelect({
   options: { value: string; label: string }[]
 }) {
   return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          appearance: "none",
-          padding: "6px 28px 6px 12px",
-          fontSize: "var(--text-xs)",
-          fontFamily: "var(--font-body)",
-          fontWeight: 500,
-          color: "var(--text-secondary)",
-          background: "var(--bg-elevated)",
-          borderRadius: "var(--radius-full)",
-          border: "1px solid var(--border-subtle)",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          transition: "all var(--transition-fast)",
-        }}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value} style={{ background: "var(--bg-elevated)" }}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        size={12}
-        style={{
-          position: "absolute",
-          right: 10,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-          color: "var(--text-muted)",
-        }}
-      />
-    </div>
+    <Select
+      value={value}
+      onChange={onChange}
+      options={options}
+      variant="pill"
+    />
   )
 }
