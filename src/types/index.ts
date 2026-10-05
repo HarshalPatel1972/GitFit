@@ -1,12 +1,5 @@
 // === Core Types for GitFit ===
 
-// Extend NextAuth types to include accessToken
-declare module "next-auth" {
-  interface Session {
-    accessToken: string
-  }
-}
-
 // === Repo Types ===
 
 export interface GitFitRepo {

@@ -1,14 +1,10 @@
 "use server"
 
-import { auth } from "@/lib/auth"
-import { createOctokit } from "@/lib/github/client"
+import { getOctokit } from "@/lib/github/client"
 import type { GitFitStar } from "@/types"
 
 export async function fetchAllStars(): Promise<GitFitStar[]> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
   const stars = await octokit.paginate(
     octokit.rest.activity.listReposStarredByAuthenticatedUser,
     {

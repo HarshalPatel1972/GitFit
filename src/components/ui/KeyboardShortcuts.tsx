@@ -6,8 +6,7 @@ import { HelpCircle, X } from "lucide-react"
 const shortcuts = [
   { key: "/", desc: "Focus search" },
   { key: "Escape", desc: "Clear selection / close modal" },
-  { key: "A", desc: "Select all visible" },
-  { key: "Shift + A", desc: "Deselect all" },
+  { key: "Ctrl/⌘ + A", desc: "Select all visible" },
   { key: "Click", desc: "Toggle selection" },
   { key: "Shift + Click", desc: "Range select" },
 ]

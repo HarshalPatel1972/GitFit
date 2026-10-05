@@ -1,14 +1,10 @@
 "use server"
 
-import { auth } from "@/lib/auth"
-import { createOctokit } from "@/lib/github/client"
+import { getOctokit } from "@/lib/github/client"
 import type { FeedItem } from "@/types"
 
 export async function fetchUserIssues(): Promise<FeedItem[]> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
   const issues = await octokit.paginate(
     octokit.rest.issues.listForAuthenticatedUser,
     {
@@ -26,10 +22,7 @@ export async function fetchUserIssues(): Promise<FeedItem[]> {
 }
 
 export async function fetchUserPRs(): Promise<FeedItem[]> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   // Use search API for user's PRs since there's no direct paginate endpoint for pulls
   const prs = await octokit.paginate(

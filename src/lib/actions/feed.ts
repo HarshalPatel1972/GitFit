@@ -1,26 +1,22 @@
 "use server"
 
-import { auth } from "@/lib/auth"
-import { createOctokit } from "@/lib/github/client"
+import { getOctokit } from "@/lib/github/client"
 import type { BulkActionResult } from "@/types"
 
 export async function bulkCloseIssues(
-  issues: { owner: string; repo: string; number: number }[]
+  issues: { owner: string; repo: string; number: number }[],
+  comment?: string
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const body = comment?.trim().slice(0, 65536)
+  const octokit = await getOctokit()
 
   const names = issues.map((i) => `${i.owner}/${i.repo}#${i.number}`)
   const results = await Promise.allSettled(
     issues.map(async ({ owner, repo, number }) => {
-      // Post comment first
-      await octokit.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: number,
-        body: "Closing as stale. Managed via [GitFit](https://gitfit.vercel.app).",
-      })
+      // Comment is optional and written by the user; nothing is posted on their behalf otherwise
+      if (body) {
+        await octokit.rest.issues.createComment({ owner, repo, issue_number: number, body })
+      }
       // Then close
       return octokit.rest.issues.update({
         owner,
@@ -47,9 +43,7 @@ export async function bulkAddLabels(
   issues: { owner: string; repo: string; number: number }[],
   labels: string[]
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const names = issues.map((i) => `${i.owner}/${i.repo}#${i.number}`)
   const results = await Promise.allSettled(

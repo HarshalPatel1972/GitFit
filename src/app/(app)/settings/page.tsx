@@ -138,8 +138,7 @@ export default function SettingsPage() {
                 {[
                   { key: "/", desc: "Focus search" },
                   { key: "Escape", desc: "Clear selection / close modal" },
-                  { key: "A", desc: "Select all" },
-                  { key: "Shift + A", desc: "Deselect all" },
+                  { key: "Ctrl/⌘ + A", desc: "Select all" },
                 ].map((s) => (
                   <tr key={s.key}>
                     <td style={{

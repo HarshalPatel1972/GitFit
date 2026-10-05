@@ -20,19 +20,19 @@ import { useToast } from "@/components/ui/Toast"
 import type { Pin } from "@/types"
 
 export default function PinsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { addToast } = useToast()
 
   const { data: remotePinnedItems, isLoading: pinsLoading } = useQuery({
     queryKey: ["pins"],
     queryFn: fetchPinnedItems,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const { data: pinnableRepos } = useQuery({
     queryKey: ["pinnable-repos"],
     queryFn: fetchPinnableRepos,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const [localPins, setLocalPins] = useState<Pin[] | null>(null)

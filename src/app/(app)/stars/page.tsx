@@ -9,16 +9,17 @@ import { fetchAllStars } from "@/lib/github/stars"
 import { bulkUnstar } from "@/lib/actions/stars"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
+import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
 import type { GitFitStar } from "@/types"
 
 export default function StarsPage() {
-  const { data: session } = useSession()
+  const { status } = useSession()
   const { addToast } = useToast()
 
   const { data: stars, isLoading, refetch } = useQuery({
     queryKey: ["stars"],
     queryFn: fetchAllStars,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const [search, setSearch] = useState("")
@@ -68,10 +69,9 @@ export default function StarsPage() {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement) return
+      if (isEditableTarget(e.target) || isModalOpen()) return
       if (e.key === "Escape") deselectAll()
-      if (e.key === "a" && !e.shiftKey) { e.preventDefault(); selectAll(allIds) }
-      if (e.key === "A" && e.shiftKey) { e.preventDefault(); deselectAll() }
+      if (isSelectAllShortcut(e)) { e.preventDefault(); selectAll(allIds) }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)

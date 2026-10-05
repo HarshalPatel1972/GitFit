@@ -12,6 +12,8 @@ import { RepoCard, RepoCardSkeleton } from "@/components/repo/RepoCard"
 import { FilterBar } from "@/components/repo/FilterBar"
 import { BulkActionBar } from "@/components/repo/BulkActionBar"
 import { BulkDeleteConfirm } from "@/components/repo/BulkDeleteConfirm"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
 import {
   bulkArchive,
   bulkUnarchive,
@@ -22,7 +24,7 @@ import {
 import type { Filters, GitFitRepo } from "@/types"
 
 export default function DashboardPage() {
-  const { data: session } = useSession()
+  const { status } = useSession()
   const queryClient = useQueryClient()
   const { addToast } = useToast()
 
@@ -34,7 +36,7 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ["repos"],
     queryFn: fetchAllRepos,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const [filters, setFilters] = useState<Filters>({
@@ -47,6 +49,7 @@ export default function DashboardPage() {
   })
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [visibilityConfirm, setVisibilityConfirm] = useState<"private" | "public" | null>(null)
   const [bulkLoading, setBulkLoading] = useState(false)
 
   const filteredRepos = useMemo(
@@ -112,23 +115,16 @@ export default function DashboardPage() {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (isEditableTarget(e.target) || isModalOpen()) return
 
       if (e.key === "/") {
         e.preventDefault()
         document.getElementById("search-repos")?.focus()
       }
-      if (e.key === "Escape") {
-        deselectAll()
-        setShowDeleteModal(false)
-      }
-      if (e.key === "a" && !e.shiftKey) {
+      if (e.key === "Escape") deselectAll()
+      if (isSelectAllShortcut(e)) {
         e.preventDefault()
         selectAll(allIds)
-      }
-      if (e.key === "A" && e.shiftKey) {
-        e.preventDefault()
-        deselectAll()
       }
     }
     window.addEventListener("keydown", handleKeyDown)
@@ -141,13 +137,14 @@ export default function DashboardPage() {
       action: (names: string[]) => Promise<{ succeeded: string[]; failed: { name: string; error: string }[] }>,
       actionName: string,
       undoAction?: (names: string[]) => Promise<unknown>,
-      cacheUpdater?: (repos: GitFitRepo[], succeeded: string[]) => GitFitRepo[]
+      cacheUpdater?: (repos: GitFitRepo[], succeeded: string[]) => GitFitRepo[],
+      names: string[] = selectedNames
     ) => {
-      if (selectedNames.length === 0) return
+      if (names.length === 0) return
       setBulkLoading(true)
 
       try {
-        const result = await action(selectedNames)
+        const result = await action(names)
 
         // Update cache optimistically
         if (cacheUpdater && result.succeeded.length > 0) {
@@ -448,32 +445,8 @@ export default function DashboardPage() {
               )
           )
         }
-        onPrivatize={() =>
-          handleBulkAction(
-            bulkPrivatize,
-            "Privatized",
-            bulkPublicize,
-            (repos, succeeded) =>
-              repos.map((r) =>
-                succeeded.includes(r.full_name)
-                  ? { ...r, private: true }
-                  : r
-              )
-          )
-        }
-        onPublicize={() =>
-          handleBulkAction(
-            bulkPublicize,
-            "Publicized",
-            bulkPrivatize,
-            (repos, succeeded) =>
-              repos.map((r) =>
-                succeeded.includes(r.full_name)
-                  ? { ...r, private: false }
-                  : r
-              )
-          )
-        }
+        onPrivatize={() => setVisibilityConfirm("private")}
+        onPublicize={() => setVisibilityConfirm("public")}
         onTag={() => {
           addToast({
             type: "info",
@@ -508,6 +481,63 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {/* Visibility confirm modal. No undo is offered: GitHub permanently erases
+          stars and watchers when a public repo is made private. */}
+      {visibilityConfirm && (() => {
+        const toPrivate = visibilityConfirm === "private"
+        const affected = (repos || []).filter(
+          (r) => selectedIds.has(r.full_name) && r.private !== toPrivate
+        )
+        const starCount = affected.reduce((sum, r) => sum + r.stargazers_count, 0)
+        const names = affected.map((r) => r.full_name)
+        const close = () => setVisibilityConfirm(null)
+        return (
+          <ConfirmDialog
+            title={`Make ${names.length} repo${names.length === 1 ? "" : "s"} ${visibilityConfirm}?`}
+            items={names}
+            confirmLabel={toPrivate ? "Make private" : "Make public"}
+            acknowledgement={
+              names.length === 0
+                ? undefined
+                : toPrivate
+                  ? "I understand stars and watchers are permanently erased and cannot be restored."
+                  : "I have checked these repos for secrets, credentials, and private data."
+            }
+            onCancel={close}
+            onConfirm={async () => {
+              close()
+              if (names.length === 0) return
+              await handleBulkAction(
+                toPrivate ? bulkPrivatize : bulkPublicize,
+                toPrivate ? "Privatized" : "Publicized",
+                undefined,
+                (repos, succeeded) =>
+                  repos.map((r) =>
+                    succeeded.includes(r.full_name) ? { ...r, private: toPrivate } : r
+                  ),
+                names
+              )
+            }}
+          >
+            {names.length === 0 ? (
+              <p>All selected repos are already {visibilityConfirm}.</p>
+            ) : toPrivate ? (
+              <p>
+                GitHub <strong style={{ color: "var(--accent-danger)" }}>permanently erases</strong>{" "}
+                all stars and watchers when a public repo becomes private
+                {starCount > 0 && <> — <strong>{starCount.toLocaleString()} stars</strong> will be lost</>}.
+                Public forks are detached. Making the repo public again does not bring them back.
+              </p>
+            ) : (
+              <p>
+                Everyone on the internet will be able to see the code, full commit history,
+                and issues of these repos.
+              </p>
+            )}
+          </ConfirmDialog>
+        )
+      })()}
 
       <style>{`
         @keyframes spin {

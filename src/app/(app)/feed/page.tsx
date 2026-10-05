@@ -8,31 +8,33 @@ import {
   Search,
   Clock,
   MessageSquare,
-  Tag,
+  X,
 } from "lucide-react"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { Select } from "@/components/ui/Select"
 import { fetchUserIssues, fetchUserPRs } from "@/lib/github/feed"
 import { bulkCloseIssues } from "@/lib/actions/feed"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
+import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
 import type { FeedItem } from "@/types"
 
 type FeedTab = "prs" | "issues" | "stale"
 
 export default function FeedPage() {
-  const { data: session } = useSession()
+  const { status } = useSession()
   const { addToast } = useToast()
 
   const { data: issues, isLoading: issuesLoading } = useQuery({
     queryKey: ["issues"],
     queryFn: fetchUserIssues,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const { data: prs, isLoading: prsLoading } = useQuery({
     queryKey: ["prs"],
     queryFn: fetchUserPRs,
-    enabled: !!session?.accessToken,
+    enabled: status === "authenticated",
   })
 
   const [tab, setTab] = useState<FeedTab>("prs")
@@ -41,6 +43,8 @@ export default function FeedPage() {
   const [sort, setSort] = useState<"updated" | "created">("updated")
   const [staleThreshold, setStaleThreshold] = useState(30)
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  const [closeComment, setCloseComment] = useState("Closing as stale. Feel free to reopen if this is still relevant.")
 
   // All unique repos across issues + PRs
   const repos = useMemo(() => {
@@ -87,10 +91,9 @@ export default function FeedPage() {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement) return
+      if (isEditableTarget(e.target) || isModalOpen()) return
       if (e.key === "Escape") deselectAll()
-      if (e.key === "a" && !e.shiftKey) { e.preventDefault(); selectAll(allIds) }
-      if (e.key === "A" && e.shiftKey) { e.preventDefault(); deselectAll() }
+      if (isSelectAllShortcut(e)) { e.preventDefault(); selectAll(allIds) }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
@@ -104,7 +107,7 @@ export default function FeedPage() {
       .map((i) => ({ owner: i.repo.owner, repo: i.repo.name, number: i.number }))
 
     try {
-      const result = await bulkCloseIssues(selectedIssues)
+      const result = await bulkCloseIssues(selectedIssues, closeComment)
       if (result.succeeded.length > 0) {
         addToast({ type: "success", message: `Closed ${result.succeeded.length} issues` })
       }
@@ -117,7 +120,15 @@ export default function FeedPage() {
     } finally {
       setBulkLoading(false)
     }
-  }, [selectedIds, selectedCount, issues, addToast, deselectAll])
+  }, [selectedIds, selectedCount, issues, closeComment, addToast, deselectAll])
+
+  const selectedIssueNames = useMemo(
+    () =>
+      (issues || [])
+        .filter((i) => selectedIds.has(String(i.id)))
+        .map((i) => `${i.repo.full_name}#${i.number} ${i.title}`),
+    [issues, selectedIds]
+  )
 
   const isLoading = issuesLoading || prsLoading
 
@@ -281,7 +292,7 @@ export default function FeedPage() {
           </span>
           <div style={{ width: 1, height: 20, background: "var(--border-default)" }} />
           <button
-            onClick={handleBulkClose}
+            onClick={() => setShowCloseConfirm(true)}
             disabled={bulkLoading}
             style={{
               display: "flex", alignItems: "center", gap: 5,
@@ -294,8 +305,8 @@ export default function FeedPage() {
           >
             <MessageSquare size={15} /> Close Issues
           </button>
-          <button onClick={deselectAll} style={{ color: "var(--text-muted)", padding: 4 }}>
-            <Tag size={14} />
+          <button onClick={deselectAll} aria-label="Clear selection" style={{ color: "var(--text-muted)", padding: 4 }}>
+            <X size={14} />
           </button>
           <style>{`
             @keyframes bulkBarAppear {
@@ -304,6 +315,35 @@ export default function FeedPage() {
             }
           `}</style>
         </div>
+      )}
+
+      {showCloseConfirm && (
+        <ConfirmDialog
+          title={`Close ${selectedIssueNames.length} issue${selectedIssueNames.length === 1 ? "" : "s"}?`}
+          items={selectedIssueNames}
+          confirmLabel="Close issues"
+          onCancel={() => setShowCloseConfirm(false)}
+          onConfirm={() => {
+            setShowCloseConfirm(false)
+            handleBulkClose()
+          }}
+        >
+          <label htmlFor="close-comment" style={{ display: "block", marginBottom: 6 }}>
+            Comment to post before closing (leave empty to close silently):
+          </label>
+          <textarea
+            id="close-comment"
+            value={closeComment}
+            onChange={(e) => setCloseComment(e.target.value)}
+            rows={3}
+            style={{
+              width: "100%", padding: "10px 12px", resize: "vertical",
+              background: "var(--bg-surface)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)", color: "var(--text-primary)",
+              fontSize: "var(--text-sm)", fontFamily: "inherit",
+            }}
+          />
+        </ConfirmDialog>
       )}
     </div>
   )

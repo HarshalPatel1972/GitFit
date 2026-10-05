@@ -1,7 +1,6 @@
 "use server"
 
-import { auth } from "@/lib/auth"
-import { createOctokit } from "@/lib/github/client"
+import { getOctokit } from "@/lib/github/client"
 import type { BulkActionResult } from "@/types"
 
 function summarizeResults(
@@ -26,9 +25,7 @@ function summarizeResults(
 }
 
 export async function bulkPrivatize(repoFullNames: string[]): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map((fullName) => {
@@ -40,9 +37,7 @@ export async function bulkPrivatize(repoFullNames: string[]): Promise<BulkAction
 }
 
 export async function bulkPublicize(repoFullNames: string[]): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map((fullName) => {
@@ -54,9 +49,7 @@ export async function bulkPublicize(repoFullNames: string[]): Promise<BulkAction
 }
 
 export async function bulkArchive(repoFullNames: string[]): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map((fullName) => {
@@ -68,9 +61,7 @@ export async function bulkArchive(repoFullNames: string[]): Promise<BulkActionRe
 }
 
 export async function bulkUnarchive(repoFullNames: string[]): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map((fullName) => {
@@ -82,9 +73,7 @@ export async function bulkUnarchive(repoFullNames: string[]): Promise<BulkAction
 }
 
 export async function bulkDelete(repoFullNames: string[]): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map((fullName) => {
@@ -99,9 +88,7 @@ export async function bulkAddTopics(
   repoFullNames: string[],
   newTopics: string[]
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map(async (fullName) => {
@@ -119,9 +106,7 @@ export async function bulkRemoveTopics(
   repoFullNames: string[],
   topicsToRemove: string[]
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const results = await Promise.allSettled(
     repoFullNames.map(async (fullName) => {
@@ -137,9 +122,7 @@ export async function bulkRemoveTopics(
 export async function bulkUpdateDescription(
   updates: { fullName: string; description: string }[]
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const names = updates.map((u) => u.fullName)
   const results = await Promise.allSettled(
@@ -154,9 +137,7 @@ export async function bulkUpdateDescription(
 export async function bulkRename(
   renames: { fullName: string; newName: string }[]
 ): Promise<BulkActionResult> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-  const octokit = createOctokit(session.accessToken)
+  const octokit = await getOctokit()
 
   const names = renames.map((r) => r.fullName)
   const results = await Promise.allSettled(

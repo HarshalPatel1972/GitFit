@@ -1,23 +1,24 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useId } from "react"
 import { ChevronDown, Check } from "lucide-react"
 
-interface Option {
-  value: string | number
+interface Option<T extends string | number> {
+  value: T
   label: string
 }
 
-interface SelectProps {
-  value: string | number
-  onChange: (value: any) => void
-  options: Option[]
+interface SelectProps<T extends string | number> {
+  value: T
+  onChange: (value: T) => void
+  options: Option<T>[]
   variant?: "pill" | "rect"
   style?: React.CSSProperties
 }
 
-export function Select({ value, onChange, options, variant = "pill", style }: SelectProps) {
+export function Select<T extends string | number>({ value, onChange, options, variant = "pill", style }: SelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
+  const listboxId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Find currently selected option
@@ -45,7 +46,7 @@ export function Select({ value, onChange, options, variant = "pill", style }: Se
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const handleSelect = (val: string | number) => {
+  const handleSelect = (val: T) => {
     onChange(val)
     setIsOpen(false)
   }
@@ -65,6 +66,10 @@ export function Select({ value, onChange, options, variant = "pill", style }: Se
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
         style={{
           display: "flex",
           alignItems: "center",
@@ -106,6 +111,8 @@ export function Select({ value, onChange, options, variant = "pill", style }: Se
       {/* Dropdown Options Menu */}
       {isOpen && (
         <div
+          role="listbox"
+          id={listboxId}
           style={{
             position: "absolute",
             top: "calc(100% + 6px)",
