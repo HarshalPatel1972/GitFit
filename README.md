@@ -88,6 +88,12 @@ To run your own instance of GitFit:
 
 ---
 
+## 📄 License
+
+GitFit is open source under the [MIT License](LICENSE).
+
+---
+
 <div align="center">
   <p>Crafted for developers who care about their digital footprint.</p>
   <p><strong>GitFit — Stay Lean. Stay Professional.</strong></p>
