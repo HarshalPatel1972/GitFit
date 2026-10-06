@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 import "@/components/layout/app.css"
+import { LiveGrid } from "@/components/ui/LiveGrid"
 
 const COLLAPSED_KEY = "gitfit_desktop_sidebar_open"
 const listeners = new Set<() => void>()
@@ -45,6 +46,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell" data-collapsed={collapsed}>
+      <LiveGrid intensity="subtle" />
       <div className="app-desktop-only">
         <Sidebar currentPath={pathname} isCollapsed={collapsed} />
         <button

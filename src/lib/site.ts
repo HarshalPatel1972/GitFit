@@ -10,6 +10,6 @@ export const SITE_URL = (
 ).replace(/\/$/, "")
 
 export const SITE_NAME = "GitFit"
-export const SITE_TAGLINE = "Your GitHub, finally under control"
+export const SITE_TAGLINE = "Your GitHub, decluttered"
 export const SITE_DESCRIPTION =
   "Bulk manage your GitHub repos, stars and issues. Archive, privatize, delete, tag and rename dozens of repos in seconds. Free, open source, no data stored."

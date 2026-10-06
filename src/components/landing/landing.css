@@ -39,7 +39,7 @@
   max-width: var(--lp-max);
   margin: 0 auto;
   padding: 14px var(--lp-gutter);
-  background: rgba(10, 10, 11, 0.82);
+  background: rgba(var(--bg-canvas-rgb), 0.82);
   backdrop-filter: blur(10px);
 }
 .lp-nav__brand {

@@ -16,20 +16,22 @@
  */
 :root {
   /* Surfaces */
-  --bg-canvas:       #0a0a0b;
-  --bg-surface:      #121214;
-  --bg-elevated:     #19191c;
-  --bg-hover:        #212125;
+  /* Deep slate rather than pure black: lets the surfaces breathe */
+  --bg-canvas:       #14181c;
+  --bg-canvas-rgb:   20, 24, 28;
+  --bg-surface:      #1a1f24;
+  --bg-elevated:     #21272d;
+  --bg-hover:        #293037;
 
-  --border-subtle:   #222226;
-  --border-default:  #303036;
-  --border-strong:   #4a4a52;
+  --border-subtle:   #262d34;
+  --border-default:  #333b44;
+  --border-strong:   #4b5560;
 
   /* Text */
   --text-primary:    #f2f0eb;
-  --text-secondary:  #a8a6a0;
-  --text-muted:      #6f6d68;
-  --text-inverse:    #0a0a0b;
+  --text-secondary:  #acb3ba;
+  --text-muted:      #78818b;
+  --text-inverse:    #14181c;
 
   /* Volt: fits / progress */
   --accent-primary:     #d4ff3a;
@@ -103,6 +105,7 @@ html {
 }
 
 body {
+  cursor: default;
   font-family: var(--font-body);
   background: var(--bg-canvas);
   color: var(--text-primary);
@@ -124,6 +127,7 @@ button {
 }
 
 input, textarea, select {
+  cursor: text;
   font-family: inherit;
   color: inherit;
   background: transparent;
@@ -287,7 +291,6 @@ input, textarea, select {
 .app-main {
   flex: 1;
   min-width: 0;
-  background: var(--bg-canvas);
   margin-left: 240px;
   transition: margin-left var(--transition-slow);
 }
@@ -535,4 +538,24 @@ input, textarea, select {
 a:hover .gitfit-mark i:last-child,
 .gitfit-mark.is-fitted i:last-child {
   transform: none;
+}
+
+/* Arrow over plain text (not an I-beam); the text is still selectable. Typing fields keep the I-beam. */
+select,
+[role="combobox"] { cursor: pointer; }
+[contenteditable="true"] { cursor: text; }
+
+/* Living background (LiveGrid): fixed behind the page, never interactive */
+.live-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Content sits above it (the sticky nav and skip link are already positioned) */
+.lp > main,
+.lp > footer,
+.app-main {
+  position: relative;
+  z-index: 1;
 }

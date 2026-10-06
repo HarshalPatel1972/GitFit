@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="src/app/icon.png" width="120" height="120" alt="GitFit Logo" />
+  <img src="src/app/icon.svg" width="120" height="120" alt="GitFit logo" />
   <h1>GitFit</h1>
-  <p><strong>Your GitHub, finally under control.</strong></p>
-  <p><em>The premium workbench for the organized developer.</em></p>
+  <p><strong>Your GitHub, decluttered.</strong></p>
+  <p><em>Your best work is in there. Somewhere. GitFit helps people find it.</em></p>
 
   <p>
     <a href="https://git-fit-ten.vercel.app/"><strong>Explore the Dashboard »</strong></a>
@@ -19,7 +19,7 @@ It starts with a few weekend projects. Then come the forks, the experiments, and
 
 **GitFit was built to change that.**
 
-It is a high-fidelity, editorial-grade dashboard designed to help you prune the dead weight and highlight your best work. It’s not just a manager; it’s a fitness tracker for your digital legacy.
+It sorts your whole profile in minutes: clutter gets put away, and what's left fits who you are today. Try the free check-up on the homepage with any username (no sign-in), then sign in to fix everything it finds in a few clicks.
 
 ---
 
@@ -58,7 +58,7 @@ Built with a focus on speed, typography, and premium aesthetics.
 - **Frontend:** Next.js 16 (App Router), Tailwind CSS
 - **Auth:** NextAuth v5 (Auth.js) with GitHub OAuth
 - **Data:** TanStack Query & Octokit REST/GraphQL
-- **Aesthetics:** HSL-tailored colors, Fraunces Display typography, and Noise texture overlays.
+- **Design:** "get it to fit": deep slate, volt for what fits, coral for clutter; Barlow Condensed and JetBrains Mono; a living canvas background.
 
 ---
 
@@ -108,5 +108,5 @@ GitFit is open source under the [MIT License](LICENSE).
 
 <div align="center">
   <p>Crafted for developers who care about their digital footprint.</p>
-  <p><strong>GitFit — Stay Lean. Stay Professional.</strong></p>
+  <p><strong>GitFit: get it to fit.</strong></p>
 </div>

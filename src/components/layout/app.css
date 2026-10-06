@@ -382,7 +382,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: rgba(10, 10, 11, 0.9);
+  background: rgba(var(--bg-canvas-rgb), 0.9);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-subtle);
 }

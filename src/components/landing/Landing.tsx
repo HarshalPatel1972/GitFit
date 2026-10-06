@@ -7,6 +7,7 @@ import { HeroSort } from "@/components/landing/HeroSort"
 import { CheckupForm, CheckupResults } from "@/components/landing/Checkup"
 import { ClickRace, FinalCta, HowItWorks, Safety, Sprawl } from "@/components/landing/Story"
 import { GitFitMark, GitHubMark } from "@/components/landing/GitHubMark"
+import { LiveGrid } from "@/components/ui/LiveGrid"
 import type { CheckupResult } from "@/lib/public-checkup"
 
 /**
@@ -37,6 +38,7 @@ export function Landing({
 
   return (
     <div className="lp">
+      <LiveGrid />
       <a href="#main" className="skip-link">
         Skip to content
       </a>
