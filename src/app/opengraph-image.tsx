@@ -1,6 +1,4 @@
 import { ImageResponse } from "next/og"
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site"
 
 export const alt = `${SITE_NAME}: ${SITE_TAGLINE}`
@@ -8,9 +6,6 @@ export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
 export default async function Image() {
-  const icon = await readFile(join(process.cwd(), "src/app/icon.png"))
-  const iconSrc = `data:image/png;base64,${icon.toString("base64")}`
-
   return new ImageResponse(
     (
       <div
@@ -21,21 +16,46 @@ export default async function Image() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "80px",
-          background: "#0d0b09",
+          background: "#14181c",
           color: "#f0ebe3",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- rendered by ImageResponse, not the browser */}
-          <img src={iconSrc} width={120} height={120} alt="" style={{ borderRadius: 28 }} />
-          <div style={{ fontSize: 96, fontWeight: 800, color: "#d4a843" }}>{SITE_NAME}</div>
+          <Mark />
+          <div style={{ fontSize: 96, fontWeight: 800, color: "#f2f0eb" }}>{SITE_NAME}</div>
         </div>
-        <div style={{ marginTop: 40, fontSize: 60, fontWeight: 700 }}>{`${SITE_TAGLINE}.`}</div>
+        <div style={{ marginTop: 40, fontSize: 60, fontWeight: 700, color: "#f2f0eb" }}>Your best work is in there. Somewhere.</div>
         <div style={{ marginTop: 24, fontSize: 32, color: "#b5a898" }}>
-          Bulk archive, privatize, delete, tag and rename your GitHub repos.
+          Sort, archive and tidy dozens of GitHub repos at once. Free check-up, no sign-in.
         </div>
       </div>
     ),
     size
+  )
+}
+
+/** The GitFit mark (same as src/app/icon.svg): a 2x2 grid, last piece dropping in. */
+function Mark() {
+  const square = (left: number, top: number, color: string, transform?: string) => (
+    <div
+      style={{
+        position: "absolute",
+        left,
+        top,
+        width: 34,
+        height: 34,
+        borderRadius: 5,
+        background: color,
+        ...(transform ? { transform } : {}),
+      }}
+    />
+  )
+  return (
+    <div style={{ position: "relative", display: "flex", width: 120, height: 120, borderRadius: 26, background: "#1a1f24" }}>
+      {square(22, 22, "#f2f0eb")}
+      {square(64, 22, "#f2f0eb")}
+      {square(22, 64, "#f2f0eb")}
+      {square(70, 58, "#d4ff3a", "rotate(18deg)")}
+    </div>
   )
 }
