@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useDialog } from "@/hooks/useDialog"
+import { validateRepoName } from "@/lib/validation"
 import { Pencil } from "lucide-react"
 
 type RenameMode = "prefix" | "suffix" | "find-replace"
@@ -34,10 +36,34 @@ export function BulkRenameModal({
     })
   }, [selectedNames, mode, prefix, suffix, find, replace])
 
-  const hasChanges = previews.some((p) => p.changed)
+  // Validate against GitHub's rules and against collisions (case-insensitive, per owner)
+  const errors = useMemo(() => {
+    const result = new Map<string, string>()
+    const finalNames = new Map<string, number>()
+    for (const p of previews) {
+      const key = `${p.owner}/${p.newName}`.toLowerCase()
+      finalNames.set(key, (finalNames.get(key) ?? 0) + 1)
+    }
+    for (const p of previews) {
+      if (!p.changed) continue
+      const error =
+        validateRepoName(p.newName) ??
+        (finalNames.get(`${p.owner}/${p.newName}`.toLowerCase())! > 1 ? "Duplicate name" : null)
+      if (error) result.set(`${p.owner}/${p.repo}`, error)
+    }
+    return result
+  }, [previews])
+
+  const changedCount = previews.filter((p) => p.changed).length
+  const hasChanges = changedCount > 0 && errors.size === 0
+
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
       style={{
         position: "fixed",
         inset: 0,
@@ -218,9 +244,14 @@ export function BulkRenameModal({
                   >
                     {p.repo}
                   </span>
-                  <span style={{ color: "var(--accent-success)" }}>
+                  <span style={{ color: errors.has(`${p.owner}/${p.repo}`) ? "var(--accent-danger)" : "var(--accent-success)" }}>
                     → {p.newName}
                   </span>
+                  {errors.has(`${p.owner}/${p.repo}`) && (
+                    <span style={{ color: "var(--accent-danger)", fontFamily: "inherit", marginLeft: 8 }}>
+                      ({errors.get(`${p.owner}/${p.repo}`)})
+                    </span>
+                  )}
                 </>
               ) : (
                 <span>{p.repo}</span>
@@ -255,7 +286,7 @@ export function BulkRenameModal({
               transition: "all var(--transition-base)",
             }}
           >
-            Rename {previews.filter((p) => p.changed).length} repos
+            Rename {changedCount} repo{changedCount === 1 ? "" : "s"}
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useDialog } from "@/hooks/useDialog"
+import { normalizeTopic } from "@/lib/validation"
 import { Tags, X, Plus } from "lucide-react"
 
 interface BulkTopicEditorProps {
@@ -21,12 +23,7 @@ export function BulkTopicEditor({
   const [topics, setTopics] = useState<string[]>([])
 
   const addTopic = useCallback(() => {
-    const tag = input
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
+    const tag = normalizeTopic(input)
     if (tag && !topics.includes(tag)) {
       setTopics((prev) => [...prev, tag])
     }
@@ -37,6 +34,8 @@ export function BulkTopicEditor({
     setTopics((prev) => prev.filter((t) => t !== tag))
   }, [])
 
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
+
   const handleSubmit = () => {
     if (topics.length === 0) return
     if (mode === "add") onAdd(topics)
@@ -45,6 +44,9 @@ export function BulkTopicEditor({
 
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
       style={{
         position: "fixed",
         inset: 0,
@@ -169,6 +171,7 @@ export function BulkTopicEditor({
           />
           <button
             onClick={addTopic}
+            aria-label="Add topic"
             style={{
               padding: "8px 12px",
               background: "var(--accent-glow)",
@@ -212,6 +215,7 @@ export function BulkTopicEditor({
                 {tag}
                 <button
                   onClick={() => removeTopic(tag)}
+                  aria-label={`Remove ${tag}`}
                   style={{
                     color: "var(--accent-primary)",
                     display: "flex",

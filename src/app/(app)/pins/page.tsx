@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useSyncExternalStore } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
@@ -16,78 +16,83 @@ import {
   Search
 } from "lucide-react"
 import { fetchPinnedItems, fetchPinnableRepos } from "@/lib/github/pins"
+import { unwrap } from "@/lib/result"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { useDialog } from "@/hooks/useDialog"
 import { useToast } from "@/components/ui/Toast"
 import type { Pin } from "@/types"
 
 export default function PinsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { addToast } = useToast()
 
-  const { data: remotePinnedItems, isLoading: pinsLoading } = useQuery({
+  const {
+    data: remotePinnedItems,
+    isLoading: pinsLoading,
+    isError: pinsError,
+    error: pinsErrorValue,
+    refetch: refetchPins,
+  } = useQuery({
     queryKey: ["pins"],
-    queryFn: fetchPinnedItems,
-    enabled: !!session?.accessToken,
+    queryFn: async () => unwrap(await fetchPinnedItems()),
+    enabled: status === "authenticated",
   })
 
   const { data: pinnableRepos } = useQuery({
     queryKey: ["pinnable-repos"],
-    queryFn: fetchPinnableRepos,
-    enabled: !!session?.accessToken,
+    queryFn: async () => unwrap(await fetchPinnableRepos()),
+    enabled: status === "authenticated",
   })
 
+  // Unsaved edits. null = no edits, show the saved (or GitHub) pins.
   const [localPins, setLocalPins] = useState<Pin[] | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showWhyModal, setShowWhyModal] = useState(false)
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (localPins !== null) return
-    const saved = localStorage.getItem(`gitfit_pins_${session?.user?.email}`)
-    if (saved) {
-      try {
-        setLocalPins(JSON.parse(saved))
-        return
-      } catch (e) {}
+  const storageKey = session?.user?.email ? `gitfit_pins_${session.user.email}` : null
+  const savedJson = useSyncExternalStore(
+    subscribeToStorage,
+    () => (storageKey ? readStorage(storageKey) : null),
+    () => null
+  )
+  const savedPins = useMemo<Pin[] | null>(() => {
+    if (!savedJson) return null
+    try {
+      return JSON.parse(savedJson)
+    } catch {
+      return null
     }
-    if (remotePinnedItems && localPins === null) {
-      setLocalPins([...remotePinnedItems])
-    }
-  }, [remotePinnedItems, localPins, session?.user?.email])
+  }, [savedJson])
 
-  const pins = localPins || []
+  const pins = useMemo(
+    () => localPins ?? savedPins ?? remotePinnedItems ?? [],
+    [localPins, savedPins, remotePinnedItems]
+  )
+  const hasUnsavedChanges = localPins !== null
 
-  const hasUnsavedChanges = useMemo(() => {
-    if (typeof window === 'undefined') return false
-    const saved = localStorage.getItem(`gitfit_pins_${session?.user?.email}`)
-    if (!saved) return localPins !== null && localPins.length > 0
-    return JSON.stringify(localPins) !== saved
-  }, [localPins, session?.user?.email])
+  const removePin = useCallback(
+    (id: string) => setLocalPins(pins.filter((p) => p.id !== id)),
+    [pins]
+  )
 
-  const removePin = useCallback((id: string) => {
-    setLocalPins((prev) => (prev ? prev.filter((p) => p.id !== id) : prev))
-  }, [])
-
-  const addPin = useCallback((pin: Pin) => {
-    setLocalPins((prev) => {
-      const current = prev || []
-      if (current.length >= 6) return current
-      if (current.some((p) => p.id === pin.id)) return current
-      return [...current, pin]
-    })
-    setShowAddModal(false)
-  }, [])
+  const addPin = useCallback(
+    (pin: Pin) => {
+      if (pins.length < 6 && !pins.some((p) => p.id === pin.id)) {
+        setLocalPins([...pins, pin])
+      }
+      setShowAddModal(false)
+    },
+    [pins]
+  )
 
   // ROCK SOLID DRAG AND DROP
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index)
     e.dataTransfer.setData("text/plain", index.toString())
     e.dataTransfer.effectAllowed = "move"
     ;(e.currentTarget as HTMLElement).style.opacity = "0.4"
   }
 
   const handleDragEnd = (e: React.DragEvent) => {
-    setDraggedIndex(null)
     ;(e.currentTarget as HTMLElement).style.opacity = "1"
   }
 
@@ -95,6 +100,22 @@ export default function PinsPage() {
     e.preventDefault()
     e.dataTransfer.dropEffect = "move"
     return false
+  }
+
+  // Keyboard alternative to dragging: Alt + Arrow keys move the focused pin
+  const handlePinKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+    if (!e.altKey) return
+    const delta = e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : 0
+    const target = index + delta
+    if (delta === 0 || target < 0 || target >= pins.length) return
+    e.preventDefault()
+    const newPins = [...pins]
+    const [moved] = newPins.splice(index, 1)
+    newPins.splice(target, 0, moved)
+    setLocalPins(newPins)
+    // Keep focus on the moved card after React re-renders it
+    const grid = e.currentTarget.parentElement
+    requestAnimationFrame(() => (grid?.children[target] as HTMLElement | undefined)?.focus())
   }
 
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
@@ -108,14 +129,18 @@ export default function PinsPage() {
     newPins.splice(targetIndex, 0, moved)
     
     setLocalPins(newPins)
-    setDraggedIndex(null)
     return false
   }
 
   const handleSave = () => {
-    if (!localPins) return
-    localStorage.setItem(`gitfit_pins_${session?.user?.email}`, JSON.stringify(localPins))
-    addToast({ type: "success", message: "Dashboard layout saved!" })
+    if (!localPins || !storageKey) return
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(localPins))
+      setLocalPins(null)
+      addToast({ type: "success", message: "Pins saved in this browser" })
+    } catch {
+      addToast({ type: "error", message: "Could not save: browser storage is unavailable" })
+    }
   }
 
   const availableRepos = useMemo(() => {
@@ -124,14 +149,16 @@ export default function PinsPage() {
     return pinnableRepos.filter((r) => !pinnedIds.has(r.id))
   }, [pinnableRepos, pins])
 
+  if (status === "loading") return null
   if (!session) return <div style={{ padding: 40, textAlign: "center" }}>Please sign in.</div>
 
   return (
     <div>
       <div style={{ marginBottom: 32 }}>
+        <p className="eyebrow">Pins</p>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700 }}>
-            Dashboard Pins
+            Your shortlist
           </h1>
           <button 
             onClick={() => setShowWhyModal(true)}
@@ -143,19 +170,25 @@ export default function PinsPage() {
             }}
           >
             <HelpCircle size={12} />
-            Why can't I sync to GitHub?
+            Why doesn&apos;t this change my GitHub profile?
           </button>
         </div>
         <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", maxWidth: 600, lineHeight: 1.6 }}>
-          Curate your workbench. These pins are persistent in your GitFit dashboard.
+          A private shortlist of your most important repos, saved in this browser. GitHub
+          doesn&apos;t let apps change the pins on your public profile, so these stay in GitFit.
         </p>
       </div>
+
+      {pinsError && !savedPins && <ErrorState error={pinsErrorValue} onRetry={() => refetchPins()} />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
         {pins.map((pin, i) => (
           <div
             key={pin.id}
             draggable
+            tabIndex={0}
+            aria-label={`${pin.name}, position ${i + 1} of ${pins.length}. Alt plus arrow keys to move.`}
+            onKeyDown={(e) => handlePinKeyDown(e, i)}
             onDragStart={(e) => handleDragStart(e, i)}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
@@ -183,6 +216,7 @@ export default function PinsPage() {
             
             <button
               onClick={() => removePin(pin.id)}
+              aria-label={`Unpin ${pin.name}`}
               style={{ position: "absolute", top: 14, right: 14, color: "var(--text-muted)", padding: 4 }}
             >
               <X size={16} />
@@ -235,7 +269,7 @@ export default function PinsPage() {
       </div>
 
       {hasUnsavedChanges && (
-        <div style={{ animation: "fadeInUp 250ms ease-out both" }}>
+        <div style={{ display: "flex", gap: 10, animation: "fadeInUp 250ms ease-out both" }}>
           <button
             onClick={handleSave}
             style={{
@@ -246,7 +280,17 @@ export default function PinsPage() {
             }}
           >
             <Save size={16} />
-            Save Dashboard Layout
+            Save pins
+          </button>
+          <button
+            onClick={() => setLocalPins(null)}
+            style={{
+              padding: "12px 24px", fontWeight: 600, color: "var(--text-secondary)",
+              background: "var(--bg-surface)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-lg)", cursor: "pointer",
+            }}
+          >
+            Discard changes
           </button>
         </div>
       )}
@@ -263,8 +307,9 @@ export default function PinsPage() {
 }
 
 function WhyModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Why pins stay in GitFit" style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)", animation: "fadeIn 200ms ease-out" }} />
       <div style={{ 
         position: "relative", background: "var(--bg-elevated)", border: "1px solid var(--border-default)",
@@ -288,7 +333,7 @@ function WhyModal({ onClose }: { onClose: () => void }) {
             Because these endpoints are restricted, GitFit helps you organize your workbench internally, but we cannot push these changes to your public GitHub profile.
           </p>
           <p>
-            We've built <strong>Dashboard Pins</strong> to give you a high-velocity, curated view of your most important repositories right here, independent of your public profile layout.
+            We&apos;ve built the <strong>pin board</strong> to give you a high-velocity, curated view of your most important repositories right here, independent of your public profile layout.
           </p>
           
           <div style={{ 
@@ -298,12 +343,12 @@ function WhyModal({ onClose }: { onClose: () => void }) {
           }}>
             <ExternalLink size={16} color="var(--accent-primary)" />
             <a 
-              href="https://github.com/orgs/community/discussions?discussions_q=is%3Aopen+pinned+items+mutation" 
+              href="https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/pinning-items-to-your-profile" 
               target="_blank" 
               rel="noopener noreferrer"
               style={{ color: "var(--accent-primary)", fontWeight: 600, textDecoration: "none" }}
             >
-              Search GitHub API Discussions
+              How to change your profile pins on GitHub
             </a>
           </div>
         </div>
@@ -324,15 +369,24 @@ function WhyModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function AddPinModal({ repos, onAdd, onClose }: any) {
+function AddPinModal({
+  repos,
+  onAdd,
+  onClose,
+}: {
+  repos: Pin[]
+  onAdd: (pin: Pin) => void
+  onClose: () => void
+}) {
   const [search, setSearch] = useState("")
-  const filtered = repos.filter((r: any) => 
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
+  const filtered = repos.filter((r) => 
     r.name.toLowerCase().includes(search.toLowerCase()) || 
     (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
   )
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Pin a repository" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)", animation: "fadeIn 200ms ease-out" }} />
       <div style={{ position: "relative", background: "var(--bg-elevated)", border: "1px solid var(--border-default)", padding: "32px", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "scaleIn 200ms ease-out" }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", fontWeight: 700, marginBottom: 20 }}>Pin to Dashboard</h2>
@@ -346,7 +400,7 @@ function AddPinModal({ repos, onAdd, onClose }: any) {
         </div>
 
         <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 6, paddingRight: 4 }}>
-          {filtered.map((repo: any) => (
+          {filtered.map((repo) => (
             <button 
               key={repo.id} onClick={() => onAdd(repo)} 
               style={{ 
@@ -384,4 +438,17 @@ function AddPinModal({ repos, onAdd, onClose }: any) {
       </div>
     </div>
   )
+}
+
+function subscribeToStorage(listener: () => void) {
+  window.addEventListener("storage", listener)
+  return () => window.removeEventListener("storage", listener)
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
 }

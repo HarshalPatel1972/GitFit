@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react"
 import { Select } from "@/components/ui/Select"
-import type { Filters, Visibility, Status, SortOption, FilterPreset } from "@/types"
+import type { Filters, Visibility, Status, SortOption } from "@/types"
 
 interface FilterBarProps {
   filters: Filters
@@ -102,6 +102,7 @@ export function FilterBar({
         <Search size={14} color="var(--text-muted)" />
         <input
           type="text"
+          aria-label="Search repositories"
           placeholder="Search repos..."
           value={filters.search}
           onChange={(e) => onFilterChange("search", e.target.value)}
@@ -160,37 +161,14 @@ export function FilterBar({
         ]}
       />
 
-      {/* Dead repos preset */}
+      {/* Clutter-only toggle (the fit panel offers the other presets) */}
       <button
-        onClick={() =>
-          onFilterChange(
-            "preset",
-            filters.preset === "dead" ? ("all" as FilterPreset) : ("dead" as FilterPreset)
-          )
-        }
-        style={{
-          padding: "6px 12px",
-          fontSize: "var(--text-xs)",
-          fontWeight: 500,
-          borderRadius: "var(--radius-full)",
-          whiteSpace: "nowrap",
-          border: "1px solid",
-          borderColor:
-            filters.preset === "dead"
-              ? "var(--accent-primary)"
-              : "var(--border-subtle)",
-          color:
-            filters.preset === "dead"
-              ? "var(--accent-primary)"
-              : "var(--text-muted)",
-          background:
-            filters.preset === "dead"
-              ? "var(--accent-glow)"
-              : "var(--bg-elevated)",
-          transition: "all var(--transition-fast)",
-        }}
+        type="button"
+        aria-pressed={filters.preset === "clutter"}
+        onClick={() => onFilterChange("preset", filters.preset === "clutter" ? "all" : "clutter")}
+        className={`chip-toggle ${filters.preset === "clutter" ? "is-on" : ""}`}
       >
-        🪦 Dead
+        Clutter only
       </button>
     </div>
   )

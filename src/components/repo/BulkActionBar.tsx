@@ -126,6 +126,7 @@ export function BulkActionBar({
       <Divider />
 
       <button
+        aria-label="Clear selection"
         onClick={onDismiss}
         style={{
           color: "var(--text-muted)",

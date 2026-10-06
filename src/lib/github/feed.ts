@@ -1,48 +1,44 @@
 "use server"
 
-import { auth } from "@/lib/auth"
-import { createOctokit } from "@/lib/github/client"
+import { getOctokit } from "@/lib/github/client"
+import { hasNextPage, run, type ActionResult, type Page } from "@/lib/result"
 import type { FeedItem } from "@/types"
 
-export async function fetchUserIssues(): Promise<FeedItem[]> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  const octokit = createOctokit(session.accessToken)
-  const issues = await octokit.paginate(
-    octokit.rest.issues.listForAuthenticatedUser,
-    {
+/** One page of open issues involving the user (excluding PRs, which GitHub mixes in). */
+export async function fetchIssuesPage(page: number): Promise<ActionResult<Page<FeedItem>>> {
+  return run(async () => {
+    const octokit = await getOctokit()
+    const { data, headers } = await octokit.rest.issues.listForAuthenticatedUser({
       filter: "all",
       state: "open",
       sort: "updated",
       per_page: 100,
+      page,
+    })
+    return {
+      hasNext: hasNextPage(headers),
+      items: data
+        .filter((issue) => !issue.pull_request)
+        .map((issue) => mapIssueToFeedItem(issue as unknown as Record<string, unknown>, "issue")),
     }
-  )
-
-  // Filter out pull requests (GitHub's issue API returns PRs too)
-  return issues
-    .filter((issue: Record<string, unknown>) => !(issue as { pull_request?: unknown }).pull_request)
-    .map((issue: Record<string, unknown>) => mapIssueToFeedItem(issue as Record<string, unknown>, "issue"))
+  })
 }
 
-export async function fetchUserPRs(): Promise<FeedItem[]> {
-  const session = await auth()
-  if (!session?.accessToken) throw new Error("Not authenticated")
-
-  const octokit = createOctokit(session.accessToken)
-
-  // Use search API for user's PRs since there's no direct paginate endpoint for pulls
-  const prs = await octokit.paginate(
-    octokit.rest.search.issuesAndPullRequests,
-    {
-      q: `is:pr is:open author:@me`,
+/** One page of the user's open PRs. GitHub search returns at most 1,000 results (10 pages). */
+export async function fetchPRsPage(page: number): Promise<ActionResult<Page<FeedItem>>> {
+  return run(async () => {
+    const octokit = await getOctokit()
+    const { data } = await octokit.rest.search.issuesAndPullRequests({
+      q: "is:pr is:open author:@me",
       sort: "updated",
       per_page: 100,
-    },
-    (response) => response.data
-  )
-
-  return prs.map((pr: Record<string, unknown>) => mapIssueToFeedItem(pr as Record<string, unknown>, "pr"))
+      page,
+    })
+    return {
+      hasNext: page * 100 < Math.min(data.total_count, 1000),
+      items: data.items.map((pr) => mapIssueToFeedItem(pr as unknown as Record<string, unknown>, "pr")),
+    }
+  })
 }
 
 function mapIssueToFeedItem(item: Record<string, unknown>, type: "pr" | "issue"): FeedItem {

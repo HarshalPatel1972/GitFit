@@ -1,22 +1,20 @@
 "use client"
 
 import Link from "next/link"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useSession, signOut } from "next-auth/react"
-import {
-  LayoutDashboard,
-  Star,
-  Activity,
-  Pin,
-  Settings,
-  LogOut,
-  X,
-} from "lucide-react"
+import { Activity, FolderGit2, Layers, LogOut, Settings, Star, X } from "lucide-react"
+import { GitFitMark } from "@/components/landing/GitHubMark"
+import { scoreColor } from "@/components/ui/ScoreRing"
+import { analyzeRepos } from "@/lib/score"
+import type { GitFitRepo } from "@/types"
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/stars", label: "Stars", icon: Star },
-  { href: "/feed", label: "Feed", icon: Activity },
-  { href: "/pins", label: "Pins", icon: Pin },
+  { href: "/dashboard", label: "Repos", hint: "sort & tidy", icon: FolderGit2 },
+  { href: "/stars", label: "Stars", hint: "clear old saves", icon: Star },
+  { href: "/feed", label: "Issues & PRs", hint: "close what's stale", icon: Activity },
+  { href: "/pins", label: "Pins", hint: "your shortlist", icon: Layers },
 ]
 
 interface SidebarProps {
@@ -27,243 +25,101 @@ interface SidebarProps {
 
 export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarProps) {
   const { data: session } = useSession()
+  // Reads the repos the dashboard already loaded; never triggers a fetch of its own
+  const { data: repos } = useQuery<GitFitRepo[]>({ queryKey: ["repos"], enabled: false })
+  const score = useMemo(() => (repos ? analyzeRepos(repos).score : null), [repos])
 
   return (
-    <aside
-      style={{
-        width: isCollapsed ? 64 : 240,
-        height: "100vh",
-        position: onClose ? "relative" : "fixed",
-        top: 0,
-        left: 0,
-        background: "var(--bg-surface)",
-        borderRight: "1px solid var(--border-subtle)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 100,
-        overflow: "hidden",
-        transition: "width var(--transition-slow)",
-      }}
-    >
-      {/* Logo */}
-      <div
-        style={{
-          padding: isCollapsed ? "24px 0 20px" : "24px 20px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: isCollapsed ? "center" : "space-between",
-          height: 77,
-        }}
-      >
-        <Link
-          href="/dashboard"
-          className="gitfit-logo"
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: isCollapsed ? "var(--text-lg)" : "var(--text-xl)",
-            fontWeight: 900,
-            color: "var(--accent-primary)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {isCollapsed ? "GF" : "GitFit"}
+    <aside className={`sidebar ${isCollapsed ? "is-collapsed" : ""} ${onClose ? "is-drawer" : ""}`}>
+      <div className="sidebar__brand">
+        <Link href="/dashboard" aria-label="GitFit home" onClick={onClose}>
+          <GitFitMark size={22} />
+          {!isCollapsed && <span>GitFit</span>}
         </Link>
-        {onClose && !isCollapsed && (
-          <button
-            onClick={onClose}
-            style={{ color: "var(--text-muted)", padding: 4 }}
-          >
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Close menu" className="sidebar__close">
             <X size={18} />
           </button>
         )}
       </div>
 
-      {/* Divider */}
-      <div
-        style={{
-          height: 1,
-          background: "var(--border-subtle)",
-          margin: isCollapsed ? "0 8px" : "0 16px",
-        }}
-      />
+      {score !== null && (
+        <Link
+          href="/dashboard"
+          className="sidebar__score"
+          onClick={onClose}
+          title={`Fit score ${score} of 100`}
+          aria-label={`Fit score ${score} of 100`}
+        >
+          <span className="sidebar__score-value" style={{ color: scoreColor(score) }}>
+            {score}
+          </span>
+          {!isCollapsed && (
+            <span className="sidebar__score-label">
+              fit score
+              <span className="sidebar__score-bar">
+                <span style={{ width: `${score}%`, background: scoreColor(score) }} />
+              </span>
+            </span>
+          )}
+        </Link>
+      )}
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: isCollapsed ? "12px 4px" : "12px 8px" }}>
+      <nav className="sidebar__nav" aria-label="Main">
         {navItems.map((item) => {
-          const isActive = currentPath.startsWith(item.href)
+          const active = currentPath.startsWith(item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
               title={isCollapsed ? item.label : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: isCollapsed ? "center" : "flex-start",
-                gap: isCollapsed ? 0 : 12,
-                padding: isCollapsed ? "10px 0" : "10px 14px",
-                borderRadius: "var(--radius-md)",
-                fontSize: "var(--text-sm)",
-                fontWeight: isActive ? 600 : 400,
-                color: isActive
-                  ? "var(--text-primary)"
-                  : "var(--text-secondary)",
-                background: isActive ? "var(--bg-hover)" : "transparent",
-                borderLeft: isCollapsed
-                  ? "none"
-                  : isActive
-                  ? "3px solid var(--accent-primary)"
-                  : "3px solid transparent",
-                borderRight: isCollapsed && isActive ? "3px solid var(--accent-primary)" : "none",
-                transition: "all var(--transition-fast)",
-                marginBottom: 2,
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive)
-                  e.currentTarget.style.background = "var(--bg-hover)"
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive)
-                  e.currentTarget.style.background = "transparent"
-              }}
+              aria-label={isCollapsed ? item.label : undefined}
+              aria-current={active ? "page" : undefined}
+              onClick={onClose}
+              className={active ? "is-active" : ""}
             >
-              <item.icon size={18} />
-              {!isCollapsed && item.label}
+              <item.icon size={18} aria-hidden="true" />
+              {!isCollapsed && (
+                <span>
+                  {item.label}
+                  <small>{item.hint}</small>
+                </span>
+              )}
             </Link>
           )
         })}
+      </nav>
 
-        <div
-          style={{
-            height: 1,
-            background: "var(--border-subtle)",
-            margin: isCollapsed ? "12px 4px" : "12px 8px",
-          }}
-        />
-
+      <div className="sidebar__foot">
         <Link
           href="/settings"
           title={isCollapsed ? "Settings" : undefined}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: isCollapsed ? "center" : "flex-start",
-            gap: isCollapsed ? 0 : 12,
-            padding: isCollapsed ? "10px 0" : "10px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "var(--text-sm)",
-            color: currentPath.startsWith("/settings")
-              ? "var(--text-primary)"
-              : "var(--text-secondary)",
-            background: currentPath.startsWith("/settings")
-              ? "var(--bg-hover)"
-              : "transparent",
-            borderLeft: isCollapsed
-              ? "none"
-              : currentPath.startsWith("/settings")
-              ? "3px solid var(--accent-primary)"
-              : "3px solid transparent",
-            borderRight: isCollapsed && currentPath.startsWith("/settings") ? "3px solid var(--accent-primary)" : "none",
-            transition: "all var(--transition-fast)",
-          }}
-          onMouseEnter={(e) => {
-            if (!currentPath.startsWith("/settings"))
-              e.currentTarget.style.background = "var(--bg-hover)"
-          }}
-          onMouseLeave={(e) => {
-            if (!currentPath.startsWith("/settings"))
-              e.currentTarget.style.background = "transparent"
-          }}
+          aria-label={isCollapsed ? "Settings" : undefined}
+          aria-current={currentPath.startsWith("/settings") ? "page" : undefined}
+          onClick={onClose}
+          className={currentPath.startsWith("/settings") ? "is-active" : ""}
         >
-          <Settings size={18} />
-          {!isCollapsed && "Settings"}
+          <Settings size={18} aria-hidden="true" />
+          {!isCollapsed && <span>Settings</span>}
         </Link>
-      </nav>
 
-      {/* Divider */}
-      <div
-        style={{
-          height: 1,
-          background: "var(--border-subtle)",
-          margin: isCollapsed ? "0 8px" : "0 16px",
-        }}
-      />
-
-      {/* User section */}
-      <div
-        style={{
-          padding: isCollapsed ? "16px 4px 20px" : "16px 16px 20px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: isCollapsed ? "center" : "stretch",
-          gap: 10,
-        }}
-      >
         {session?.user && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: isCollapsed ? "center" : "flex-start",
-              gap: isCollapsed ? 0 : 10,
-            }}
-          >
+          <div className="sidebar__user">
             {session.user.image && (
-              <img
-                src={session.user.image}
-                alt=""
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "var(--radius-full)",
-                  border: "2px solid var(--border-default)",
-                }}
-              />
+              // eslint-disable-next-line @next/next/no-img-element -- 28px GitHub avatar, already sized by GitHub
+              <img src={session.user.image} alt="" width={28} height={28} />
             )}
-            {!isCollapsed && (
-              <span
-                style={{
-                  fontSize: "var(--text-sm)",
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {session.user.name || session.user.email}
-              </span>
-            )}
+            {!isCollapsed && <span>{session.user.name}</span>}
+            <button
+              type="button"
+              onClick={() => signOut({ redirectTo: "/" })}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <LogOut size={16} aria-hidden="true" />
+            </button>
           </div>
         )}
-
-        <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          title={isCollapsed ? "Sign out" : undefined}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: isCollapsed ? "center" : "flex-start",
-            gap: isCollapsed ? 0 : 8,
-            padding: isCollapsed ? "8px 0" : "8px 12px",
-            fontSize: "var(--text-sm)",
-            color: "var(--text-muted)",
-            borderRadius: "var(--radius-md)",
-            transition: "all var(--transition-fast)",
-            width: "100%",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--accent-danger)"
-            e.currentTarget.style.background = "var(--accent-danger-glow)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-muted)"
-            e.currentTarget.style.background = "transparent"
-          }}
-        >
-          <LogOut size={16} />
-          {!isCollapsed && "Sign out"}
-        </button>
       </div>
     </aside>
   )

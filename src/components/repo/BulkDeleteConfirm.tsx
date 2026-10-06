@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useDialog } from "@/hooks/useDialog"
 import { AlertTriangle } from "lucide-react"
 
 interface BulkDeleteConfirmProps {
@@ -19,8 +20,13 @@ export function BulkDeleteConfirm({
   const [typed, setTyped] = useState("")
   const confirmed = typed === String(count)
 
+  const dialogRef = useDialog<HTMLDivElement>(onCancel)
+
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
       style={{
         position: "fixed",
         inset: 0,

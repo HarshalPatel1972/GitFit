@@ -1,13 +1,57 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site"
+import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/Providers"
-import { ToastContainer } from "@/components/ui/Toast"
+import { ToastProvider } from "@/components/ui/Toast"
+
+// Self-hosted at build time: no requests to Google Fonts at runtime.
+// Barlow: a clean signage grotesk; its condensed cut carries the headlines.
+const barlow = Barlow({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-barlow",
+  display: "swap",
+})
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
-  title: "GitFit — Your GitHub, finally under control",
-  description:
-    "Bulk manage your GitHub repos, stars, pins, and issues. Archive, privatize, delete, tag, and rename — all in one warm, fast dashboard.",
-  icons: { icon: "/icon.png" },
+  metadataBase: new URL(SITE_URL),
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#0d0b09",
+  colorScheme: "dark",
 }
 
 export default function RootLayout({
@@ -16,11 +60,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${barlow.variable} ${barlowCondensed.variable} ${jetbrainsMono.variable}`}>
       <body>
         <Providers>
-          {children}
-          <ToastContainer />
+          <ToastProvider>{children}</ToastProvider>
         </Providers>
       </body>
     </html>

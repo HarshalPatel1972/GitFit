@@ -1,87 +1,66 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import { useState, useSyncExternalStore } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
+import "@/components/layout/app.css"
 
+const COLLAPSED_KEY = "gitfit_desktop_sidebar_open"
+const listeners = new Set<() => void>()
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "false"
+  } catch {
+    return false
+  }
+}
+
+function setCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, String(!collapsed))
+  } catch {
+    // Storage unavailable; the choice just won't persist
+  }
+  listeners.forEach((listener) => listener())
+}
+
+// Desktop vs. mobile layout is decided in CSS (globals.css, .app-*) so the first paint
+// is already correct on phones instead of flashing the desktop layout.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("gitfit_desktop_sidebar_open")
-      return saved !== "false"
-    }
-    return true
-  })
+  const collapsed = useSyncExternalStore(subscribe, readCollapsed, () => false)
 
-  useEffect(() => {
-    localStorage.setItem("gitfit_desktop_sidebar_open", String(desktopSidebarOpen))
-  }, [desktopSidebarOpen])
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
-    setSidebarOpen(false)
-  }, [pathname])
+  // The mobile menu is open only on the page where it was opened, so navigating closes it
+  const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null)
+  const mobileMenuOpen = menuOpenOn === pathname
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Desktop sidebar */}
-      {!isMobile && (
-        <Sidebar currentPath={pathname} isCollapsed={!desktopSidebarOpen} />
-      )}
-
-      {/* Desktop sidebar toggle button */}
-      {!isMobile && (
+    <div className="app-shell" data-collapsed={collapsed}>
+      <div className="app-desktop-only">
+        <Sidebar currentPath={pathname} isCollapsed={collapsed} />
         <button
-          onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
-          aria-label={desktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          style={{
-            position: "fixed",
-            top: 24,
-            left: desktopSidebarOpen ? 228 : 52,
-            width: 24,
-            height: 24,
-            borderRadius: "var(--radius-full)",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            zIndex: 101,
-            transition: "left var(--transition-slow), background var(--transition-fast), color var(--transition-fast)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--text-primary)"
-            e.currentTarget.style.background = "var(--bg-hover)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-muted)"
-            e.currentTarget.style.background = "var(--bg-elevated)"
-          }}
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="app-sidebar-toggle"
+          style={{ left: collapsed ? 52 : 228 }}
         >
-          {desktopSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
-      )}
+      </div>
 
-      {/* Mobile sidebar overlay */}
-      {isMobile && sidebarOpen && (
-        <>
+      {mobileMenuOpen && (
+        <div className="app-mobile-only">
           <div
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => setMenuOpenOn(null)}
             style={{
               position: "fixed",
               inset: 0,
@@ -91,6 +70,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             }}
           />
           <div
+            role="dialog"
+            aria-label="Navigation"
             style={{
               position: "fixed",
               top: 0,
@@ -101,44 +82,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               animation: "slideInFromLeft 250ms ease-out",
             }}
           >
-            <Sidebar
-              currentPath={pathname}
-              onClose={() => setSidebarOpen(false)}
-            />
+            <Sidebar currentPath={pathname} onClose={() => setMenuOpenOn(null)} />
           </div>
-        </>
+        </div>
       )}
 
-      {/* Main content */}
-      <main
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: "var(--bg-canvas)",
-          marginLeft: isMobile ? 0 : (desktopSidebarOpen ? 240 : 64),
-          transition: "margin-left var(--transition-slow)",
-        }}
-      >
-        {isMobile && (
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-        )}
-        <div
-          style={{
-            maxWidth: 1280,
-            margin: "0 auto",
-            padding: isMobile ? "16px" : "32px 24px",
-          }}
-        >
-          {children}
+      <main className="app-main">
+        <div className="app-mobile-only">
+          <MobileHeader onMenuClick={() => setMenuOpenOn(pathname)} />
+        </div>
+        <div className="app-content">
+          <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
         </div>
       </main>
-
-      <style>{`
-        @keyframes slideInFromLeft {
-          from { transform: translateX(-100%); }
-          to { transform: translateX(0); }
-        }
-      `}</style>
     </div>
   )
 }

@@ -1,12 +1,5 @@
 // === Core Types for GitFit ===
 
-// Extend NextAuth types to include accessToken
-declare module "next-auth" {
-  interface Session {
-    accessToken: string
-  }
-}
-
 // === Repo Types ===
 
 export interface GitFitRepo {
@@ -93,8 +86,7 @@ export interface Pin {
 export type Visibility = "all" | "public" | "private"
 export type Status = "all" | "active" | "archived"
 export type SortOption = "updated" | "name" | "stars" | "size" | "created"
-export type ViewMode = "grid" | "list"
-export type FilterPreset = "all" | "dead"
+export type FilterPreset = "all" | "clutter" | "no-description" | "no-topics" | "untouched-forks"
 
 export interface Filters {
   search: string
@@ -110,4 +102,6 @@ export interface Filters {
 export interface BulkActionResult {
   succeeded: string[]
   failed: { name: string; error: string }[]
+  // True when GitHub rate-limited part of the request
+  rateLimited?: boolean
 }

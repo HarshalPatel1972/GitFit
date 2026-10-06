@@ -1,46 +1,62 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useMemo, useCallback } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
   ExternalLink,
   Search,
   Clock,
   MessageSquare,
-  Tag,
+  X,
 } from "lucide-react"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useSettings } from "@/hooks/useSettings"
 import { Select } from "@/components/ui/Select"
-import { fetchUserIssues, fetchUserPRs } from "@/lib/github/feed"
+import { fetchIssuesPage, fetchPRsPage } from "@/lib/github/feed"
+import { fetchAllPages, runBulk, handleSessionExpiry, errorMessage } from "@/lib/client-actions"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { BulkProgress } from "@/components/ui/BulkProgress"
 import { bulkCloseIssues } from "@/lib/actions/feed"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
+import { useSelectionShortcuts } from "@/hooks/useSelectionShortcuts"
 import type { FeedItem } from "@/types"
 
 type FeedTab = "prs" | "issues" | "stale"
 
 export default function FeedPage() {
-  const { data: session } = useSession()
+  const { status } = useSession()
   const { addToast } = useToast()
 
-  const { data: issues, isLoading: issuesLoading } = useQuery({
+  const queryClient = useQueryClient()
+  // Issues and PRs are capped at 1,000 each (GitHub search returns no more than that)
+  const issuesQuery = useQuery({
     queryKey: ["issues"],
-    queryFn: fetchUserIssues,
-    enabled: !!session?.accessToken,
+    queryFn: () => fetchAllPages(fetchIssuesPage, { maxPages: 10 }),
+    enabled: status === "authenticated",
   })
-
-  const { data: prs, isLoading: prsLoading } = useQuery({
+  const prsQuery = useQuery({
     queryKey: ["prs"],
-    queryFn: fetchUserPRs,
-    enabled: !!session?.accessToken,
+    queryFn: () => fetchAllPages(fetchPRsPage, { maxPages: 10 }),
+    enabled: status === "authenticated",
   })
+  const issues = issuesQuery.data?.items
+  const prs = prsQuery.data?.items
+  const issuesLoading = issuesQuery.isLoading
+  const prsLoading = prsQuery.isLoading
 
   const [tab, setTab] = useState<FeedTab>("prs")
   const [search, setSearch] = useState("")
   const [repoFilter, setRepoFilter] = useState("")
   const [sort, setSort] = useState<"updated" | "created">("updated")
-  const [staleThreshold, setStaleThreshold] = useState(30)
+  const { settings } = useSettings()
+  const [thresholdOverride, setStaleThreshold] = useState<number | null>(null)
+  const staleThreshold = thresholdOverride ?? settings.staleThreshold
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  const [closeComment, setCloseComment] = useState("Closing as stale. Feel free to reopen if this is still relevant.")
 
   // All unique repos across issues + PRs
   const repos = useMemo(() => {
@@ -49,12 +65,12 @@ export default function FeedPage() {
     return Array.from(unique).sort()
   }, [issues, prs])
 
-  // Stale issues
+  // Stale issues: no activity (comments, edits, labels) within the threshold
   const staleIssues = useMemo(() => {
     if (!issues) return []
     const threshold = new Date()
     threshold.setDate(threshold.getDate() - staleThreshold)
-    return issues.filter((i) => new Date(i.created_at) < threshold)
+    return issues.filter((i) => new Date(i.updated_at) < threshold)
   }, [issues, staleThreshold])
 
   // Current tab items
@@ -84,17 +100,7 @@ export default function FeedPage() {
   const allIds = useMemo(() => currentItems.map((i) => String(i.id)), [currentItems])
   const { selectedIds, selectedCount, hasSelection, toggle, selectAll, deselectAll, isSelected } = useSelection()
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement) return
-      if (e.key === "Escape") deselectAll()
-      if (e.key === "a" && !e.shiftKey) { e.preventDefault(); selectAll(allIds) }
-      if (e.key === "A" && e.shiftKey) { e.preventDefault(); deselectAll() }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [allIds, selectAll, deselectAll])
+  useSelectionShortcuts({ allIds, selectAll, deselectAll, searchInputId: "search-feed" })
 
   const handleBulkClose = useCallback(async () => {
     if (selectedCount === 0 || !issues) return
@@ -104,29 +110,55 @@ export default function FeedPage() {
       .map((i) => ({ owner: i.repo.owner, repo: i.repo.name, number: i.number }))
 
     try {
-      const result = await bulkCloseIssues(selectedIssues)
+      const result = await runBulk(selectedIssues, (batch) => bulkCloseIssues(batch, closeComment), {
+        nameOf: (i) => `${i.owner}/${i.repo}#${i.number}`,
+        onProgress: (done, total) => setBulkProgress({ done, total }),
+      })
       if (result.succeeded.length > 0) {
-        addToast({ type: "success", message: `Closed ${result.succeeded.length} issues` })
+        const closed = new Set(result.succeeded)
+        queryClient.setQueryData(
+          ["issues"],
+          (old: { items: FeedItem[]; truncated: boolean } | undefined) =>
+            old && {
+              ...old,
+              items: old.items.filter((i) => !closed.has(`${i.repo.full_name}#${i.number}`)),
+            }
+        )
+        addToast({ type: "success", message: `Closed ${result.succeeded.length} issue${result.succeeded.length === 1 ? "" : "s"}` })
       }
       if (result.failed.length > 0) {
-        addToast({ type: "error", message: `Failed: ${result.failed.map((f) => f.name).join(", ")}`, duration: 5000 })
+        const shown = result.failed.slice(0, 3).map((f) => `${f.name} (${f.error})`).join(", ")
+        const more = result.failed.length > 3 ? ` and ${result.failed.length - 3} more` : ""
+        addToast({ type: "error", message: `Failed: ${shown}${more}`, duration: 8000 })
       }
       deselectAll()
-    } catch {
-      addToast({ type: "error", message: "Failed to close issues" })
+    } catch (err) {
+      if (handleSessionExpiry(err)) return
+      addToast({ type: "error", message: `Failed to close issues: ${errorMessage(err)}` })
     } finally {
       setBulkLoading(false)
+      setBulkProgress(null)
     }
-  }, [selectedIds, selectedCount, issues, addToast, deselectAll])
+  }, [selectedIds, selectedCount, issues, closeComment, queryClient, addToast, deselectAll])
+
+  const selectedIssueNames = useMemo(
+    () =>
+      (issues || [])
+        .filter((i) => selectedIds.has(String(i.id)))
+        .map((i) => `${i.repo.full_name}#${i.number} ${i.title}`),
+    [issues, selectedIds]
+  )
 
   const isLoading = issuesLoading || prsLoading
+  const activeQuery = tab === "prs" ? prsQuery : issuesQuery
 
   return (
     <div>
       {/* Header */}
       <div style={{ marginBottom: 8, animation: "fadeInDown 300ms ease-out both" }}>
+        <p className="eyebrow">Issues &amp; PRs</p>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700, marginBottom: 8 }}>
-          Activity Feed
+          Close what&apos;s stale
         </h1>
       </div>
 
@@ -183,7 +215,7 @@ export default function FeedPage() {
         }}>
           <Search size={14} color="var(--text-muted)" />
           <input
-            type="text" placeholder="Search..." value={search}
+            id="search-feed" type="text" aria-label="Search issues and pull requests" placeholder="Search..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-primary)", minWidth: 0 }}
           />
@@ -212,7 +244,7 @@ export default function FeedPage() {
         {tab === "stale" && (
           <Select
             value={staleThreshold}
-            onChange={(val) => setStaleThreshold(Number(val))}
+            onChange={(val) => setStaleThreshold(val)}
             options={[
               { value: 30, label: "30 days" },
               { value: 60, label: "60 days" },
@@ -222,6 +254,19 @@ export default function FeedPage() {
           />
         )}
       </div>
+
+      {/* Errors and truncation */}
+      {activeQuery.isError && (
+        <ErrorState
+          error={activeQuery.error}
+          onRetry={() => activeQuery.refetch()}
+        />
+      )}
+      {activeQuery.data?.truncated && (
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 12 }}>
+          Showing the 1,000 most recently updated {tab === "prs" ? "pull requests" : "issues"}.
+        </p>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -236,7 +281,7 @@ export default function FeedPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && currentItems.length === 0 && (
+      {!isLoading && !activeQuery.isError && currentItems.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", animation: "fadeIn 300ms ease-out both" }}>
           <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.5 }}>
             {tab === "stale" ? "✓" : "📭"}
@@ -281,7 +326,7 @@ export default function FeedPage() {
           </span>
           <div style={{ width: 1, height: 20, background: "var(--border-default)" }} />
           <button
-            onClick={handleBulkClose}
+            onClick={() => setShowCloseConfirm(true)}
             disabled={bulkLoading}
             style={{
               display: "flex", alignItems: "center", gap: 5,
@@ -294,8 +339,8 @@ export default function FeedPage() {
           >
             <MessageSquare size={15} /> Close Issues
           </button>
-          <button onClick={deselectAll} style={{ color: "var(--text-muted)", padding: 4 }}>
-            <Tag size={14} />
+          <button onClick={deselectAll} aria-label="Clear selection" style={{ color: "var(--text-muted)", padding: 4 }}>
+            <X size={14} />
           </button>
           <style>{`
             @keyframes bulkBarAppear {
@@ -304,6 +349,39 @@ export default function FeedPage() {
             }
           `}</style>
         </div>
+      )}
+
+      {bulkProgress && bulkProgress.total > 10 && (
+        <BulkProgress done={bulkProgress.done} total={bulkProgress.total} />
+      )}
+
+      {showCloseConfirm && (
+        <ConfirmDialog
+          title={`Close ${selectedIssueNames.length} issue${selectedIssueNames.length === 1 ? "" : "s"}?`}
+          items={selectedIssueNames}
+          confirmLabel="Close issues"
+          onCancel={() => setShowCloseConfirm(false)}
+          onConfirm={() => {
+            setShowCloseConfirm(false)
+            handleBulkClose()
+          }}
+        >
+          <label htmlFor="close-comment" style={{ display: "block", marginBottom: 6 }}>
+            Comment to post before closing (leave empty to close silently):
+          </label>
+          <textarea
+            id="close-comment"
+            value={closeComment}
+            onChange={(e) => setCloseComment(e.target.value)}
+            rows={3}
+            style={{
+              width: "100%", padding: "10px 12px", resize: "vertical",
+              background: "var(--bg-surface)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)", color: "var(--text-primary)",
+              fontSize: "var(--text-sm)", fontFamily: "inherit",
+            }}
+          />
+        </ConfirmDialog>
       )}
     </div>
   )

@@ -34,11 +34,11 @@ The **"Dead Repos"** engine automatically identifies projects that haven't seen 
 ### 🌟 The Stars Archive
 We all star repos we intend to use, only to forget them. Our **Stars Manager** surfaces "Forgotten Stars"—repos you starred over a year ago—allowing you to search, filter by language, and bulk-unstar to keep your inspiration feed fresh.
 
-### 📌 Profile Architecture
-Your "Pinned Repos" are your digital resume. GitFit’s native **Drag-and-Drop Pin Editor** lets you reorder and sync your profile pins with a live preview, ensuring your first impression is always your best.
+### 📌 Pin Board
+Keep your most important repos one glance away. The **Drag-and-Drop Pin Board** lets you shortlist and reorder up to six repos inside GitFit, starting from your current GitHub profile pins. (GitHub doesn't offer an API for changing profile pins, so your public profile is left untouched.)
 
 ### 📬 The Unified Feed
-One view. All your open PRs and Issues across every repository you own. Identify **Stale Issues** that have been sitting idle and bulk-close them with custom comments to maintain a healthy project velocity.
+One view. All your open PRs and Issues across every repository you own. Identify **Stale Issues** that have been sitting idle and bulk-close them, optionally with a comment you write to maintain a healthy project velocity.
 
 ---
 
@@ -46,7 +46,7 @@ One view. All your open PRs and Issues across every repository you own. Identify
 
 GitFit is a **stateless tool**. 
 - **Zero Databases:** We don't store your repo data.
-- **Direct API:** All actions happen directly between your browser and GitHub.
+- **Direct API:** Every action is a call to GitHub's official API, made by GitFit's server on your behalf. Nothing is cached or kept.
 - **Session Only:** Your OAuth token lives only in your encrypted session and never touches our logs.
 
 ---
@@ -73,18 +73,36 @@ To run your own instance of GitFit:
    ```
 
 2. **Configure Environment**
-   Create a `.env.local` with your GitHub OAuth credentials:
+   Create a [GitHub OAuth App](https://github.com/settings/developers) with the callback URL
+   `http://localhost:3000/api/auth/callback/github`, then copy `.env.example` to `.env.local` and fill it in:
    ```env
+   AUTH_SECRET=xxx            # openssl rand -base64 32
    GITHUB_CLIENT_ID=xxx
    GITHUB_CLIENT_SECRET=xxx
-   NEXTAUTH_SECRET=xxx
-   NEXTAUTH_URL=http://localhost:3000
    ```
 
 3. **Launch**
    ```bash
    npm run dev
    ```
+
+4. **Check your changes**
+   ```bash
+   npm run lint && npm run typecheck && npm test && npm run build
+   ```
+   CI runs the same checks on every pull request.
+
+---
+
+## 🔒 Security
+
+Found a vulnerability? Please report it privately. See [SECURITY.md](SECURITY.md).
+
+---
+
+## 📄 License
+
+GitFit is open source under the [MIT License](LICENSE).
 
 ---
 
