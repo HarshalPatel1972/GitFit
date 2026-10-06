@@ -1,4 +1,21 @@
-import type { GitFitRepo, Filters } from "@/types"
+import { isClutter, isUntouchedFork } from "@/lib/score"
+import type { GitFitRepo, Filters, FilterPreset } from "@/types"
+
+/** Repos a "fix list" preset is about. Archived repos are already put away. */
+export function matchesPreset(r: GitFitRepo, preset: FilterPreset): boolean {
+  switch (preset) {
+    case "clutter":
+      return isClutter(r)
+    case "untouched-forks":
+      return isUntouchedFork(r)
+    case "no-description":
+      return !r.archived && !r.description?.trim()
+    case "no-topics":
+      return !r.archived && (!r.topics || r.topics.length === 0)
+    default:
+      return true
+  }
+}
 
 export function filterRepos(repos: GitFitRepo[], filters: Filters): GitFitRepo[] {
   return repos
@@ -16,11 +33,7 @@ export function filterRepos(repos: GitFitRepo[], filters: Filters): GitFitRepo[]
       if (filters.status === "archived" && !r.archived) return false
       if (filters.status === "active" && r.archived) return false
       if (filters.language && r.language !== filters.language) return false
-      if (filters.preset === "dead") {
-        const sixMonthsAgo = new Date()
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-        if (new Date(r.pushed_at) > sixMonthsAgo || r.archived) return false
-      }
+      if (!matchesPreset(r, filters.preset)) return false
       return true
     })
     .sort((a, b) => {

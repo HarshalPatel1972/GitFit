@@ -121,8 +121,9 @@ export default function StarsPage() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 8, animation: "fadeInDown 300ms ease-out both" }}>
+        <p className="eyebrow">Stars</p>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700, marginBottom: 4 }}>
-          Starred Repositories
+          Clear old saves
         </h1>
         {stars && (
           <p style={{ fontSize: "var(--text-sm)", fontWeight: 300, fontStyle: "italic", color: "var(--text-muted)" }}>

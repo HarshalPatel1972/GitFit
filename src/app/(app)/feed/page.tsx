@@ -156,8 +156,9 @@ export default function FeedPage() {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 8, animation: "fadeInDown 300ms ease-out both" }}>
+        <p className="eyebrow">Issues &amp; PRs</p>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700, marginBottom: 8 }}>
-          Activity Feed
+          Close what&apos;s stale
         </h1>
       </div>
 

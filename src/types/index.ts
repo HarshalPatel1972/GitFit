@@ -86,7 +86,7 @@ export interface Pin {
 export type Visibility = "all" | "public" | "private"
 export type Status = "all" | "active" | "archived"
 export type SortOption = "updated" | "name" | "stars" | "size" | "created"
-export type FilterPreset = "all" | "dead"
+export type FilterPreset = "all" | "clutter" | "no-description" | "no-topics" | "untouched-forks"
 
 export interface Filters {
   search: string

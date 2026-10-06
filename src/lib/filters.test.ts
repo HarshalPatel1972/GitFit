@@ -56,8 +56,12 @@ describe("filterRepos", () => {
     expect(names(filterRepos(repos, { ...base, language: "Go" }))).toEqual(["alpha"])
   })
 
-  it("'dead' finds unarchived repos with no push in 6+ months", () => {
-    expect(names(filterRepos(repos, { ...base, preset: "dead" }))).toEqual(["delta"])
+  it("'clutter' finds unarchived repos with no push in 6+ months", () => {
+    expect(names(filterRepos(repos, { ...base, preset: "clutter" }))).toEqual(["delta"])
+  })
+
+  it("'no-description' skips archived repos", () => {
+    expect(names(filterRepos(repos, { ...base, preset: "no-description" }))).toEqual(["beta", "delta"])
   })
 
   it("sorts by stars, name and last update", () => {

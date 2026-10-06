@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { RefreshCw, Skull } from "lucide-react"
+import { RefreshCw } from "lucide-react"
+import { FitPanel } from "@/components/repo/FitPanel"
+import { matchesPreset } from "@/lib/filters"
+import { analyzeRepos } from "@/lib/score"
 import { fetchReposPage } from "@/lib/github/repos"
 import { fetchAllPages, runBulk, handleSessionExpiry, errorMessage } from "@/lib/client-actions"
 import type { ActionResult } from "@/lib/result"
@@ -31,7 +34,7 @@ import {
   bulkRemoveTopics,
   bulkRename,
 } from "@/lib/actions/bulk"
-import type { BulkActionResult, Filters, GitFitRepo, SortOption } from "@/types"
+import type { BulkActionResult, FilterPreset, Filters, GitFitRepo, SortOption } from "@/types"
 
 // `sort: null` means "use the default sort from Settings"
 type FilterState = Omit<Filters, "sort"> & { sort: SortOption | null }
@@ -111,26 +114,30 @@ export default function DashboardPage() {
     return Array.from(langs).sort()
   }, [repos])
 
-  // Stats
-  const stats = useMemo(() => {
-    if (!repos) return { total: 0, pub: 0, priv: 0, archived: 0 }
-    return {
-      total: repos.length,
-      pub: repos.filter((r) => !r.private).length,
-      priv: repos.filter((r) => r.private).length,
-      archived: repos.filter((r) => r.archived).length,
+  // Celebrate when a clean-up visibly improves the score
+  const score = useMemo(() => (repos ? analyzeRepos(repos).score : null), [repos])
+  const previousScore = useRef<number | null>(null)
+  useEffect(() => {
+    if (score === null) return
+    const previous = previousScore.current
+    previousScore.current = score
+    if (previous !== null && score > previous) {
+      addToast({ type: "success", message: `Better fit: ${previous} → ${score}` })
     }
-  }, [repos])
+  }, [score, addToast])
 
-  // Dead repos count
-  const deadCount = useMemo(() => {
-    if (!repos) return 0
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    return repos.filter(
-      (r) => new Date(r.pushed_at) < sixMonthsAgo && !r.archived
-    ).length
-  }, [repos])
+  // A fix from the fit panel: show only the culprits, and optionally select them all
+  const handleFix = useCallback(
+    (preset: FilterPreset, select: boolean) => {
+      setFilters((prev) => ({ ...prev, preset, status: "all", search: "" }))
+      if (select && repos) {
+        selectAll(repos.filter((r) => matchesPreset(r, preset)).map((r) => r.full_name))
+      } else {
+        deselectAll()
+      }
+    },
+    [repos, selectAll, deselectAll]
+  )
 
   const handleFilterChange = useCallback(
     (key: keyof Filters, value: string) => {
@@ -201,78 +208,24 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {/* Page Header */}
-      <div
-        style={{
-          marginBottom: 8,
-          animation: "fadeInDown 300ms ease-out both",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 8,
-          }}
-        >
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-3xl)",
-              fontWeight: 700,
-            }}
-          >
-            Your Repositories
-          </h1>
-          <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            aria-label="Refresh repositories"
-            style={{
-              color: "var(--text-muted)",
-              padding: 6,
-              borderRadius: "var(--radius-md)",
-              transition: "all var(--transition-fast)",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--text-secondary)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-muted)")
-            }
-          >
-            <RefreshCw
-              size={16}
-              style={{
-                animation: isRefetching ? "spin 1s linear infinite" : "none",
-              }}
-            />
-          </button>
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Repos</p>
+          <h1>Make it fit</h1>
         </div>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => refetch()}
+          disabled={isRefetching}
+          aria-label="Refresh repositories"
+          title="Refresh from GitHub"
+        >
+          <RefreshCw size={16} className={isRefetching ? "spin" : ""} aria-hidden="true" />
+        </button>
+      </header>
 
-        {/* Stats pills */}
-        {repos && (
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              fontSize: "var(--text-sm)",
-              fontWeight: 300,
-              fontStyle: "italic",
-              color: "var(--text-muted)",
-            }}
-          >
-            <span>{stats.pub} public</span>
-            <span>{stats.priv} private</span>
-            <span>{stats.archived} archived</span>
-            <span style={{ color: "var(--text-secondary)" }}>
-              {stats.total} total
-            </span>
-          </div>
-        )}
-      </div>
+      {repos && <FitPanel repos={repos} activePreset={filters.preset} onFix={handleFix} />}
 
       {/* Filter Bar */}
       {repos && (
@@ -287,50 +240,6 @@ export default function DashboardPage() {
           onSelectAll={() => selectAll(allIds)}
           onDeselectAll={deselectAll}
         />
-      )}
-
-      {/* Dead repos banner */}
-      {filters.preset === "dead" && deadCount > 0 && (
-        <div
-          style={{
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-            borderRadius: "var(--radius-lg)",
-            padding: "14px 20px",
-            marginBottom: 20,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-            animation: "fadeInUp 250ms ease-out both",
-          }}
-        >
-          <Skull size={18} color="var(--text-muted)" />
-          <span
-            style={{
-              flex: 1,
-              fontSize: "var(--text-sm)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <strong>{deadCount}</strong> repos haven&apos;t had activity in 6+
-            months. Bulk archive them to clean up your profile.
-          </span>
-          <button
-            onClick={() => selectAll(allIds)}
-            style={{
-              padding: "6px 12px",
-              fontSize: "var(--text-xs)",
-              fontWeight: 600,
-              color: "var(--accent-primary)",
-              background: "var(--accent-glow)",
-              borderRadius: "var(--radius-full)",
-              transition: "all var(--transition-fast)",
-            }}
-          >
-            Select All Dead
-          </button>
-        </div>
       )}
 
       {isError && !repos && <ErrorState error={error} onRetry={() => refetch()} />}

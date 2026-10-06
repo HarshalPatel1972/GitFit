@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
+import "@/components/layout/app.css"
 
 const COLLAPSED_KEY = "gitfit_desktop_sidebar_open"
 const listeners = new Set<() => void>()

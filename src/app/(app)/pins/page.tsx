@@ -155,9 +155,10 @@ export default function PinsPage() {
   return (
     <div>
       <div style={{ marginBottom: 32 }}>
+        <p className="eyebrow">Pins</p>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", fontWeight: 700 }}>
-            Dashboard Pins
+            Your shortlist
           </h1>
           <button 
             onClick={() => setShowWhyModal(true)}
@@ -332,7 +333,7 @@ function WhyModal({ onClose }: { onClose: () => void }) {
             Because these endpoints are restricted, GitFit helps you organize your workbench internally, but we cannot push these changes to your public GitHub profile.
           </p>
           <p>
-            We&apos;ve built <strong>Dashboard Pins</strong> to give you a high-velocity, curated view of your most important repositories right here, independent of your public profile layout.
+            We&apos;ve built the <strong>pin board</strong> to give you a high-velocity, curated view of your most important repositories right here, independent of your public profile layout.
           </p>
           
           <div style={{ 
