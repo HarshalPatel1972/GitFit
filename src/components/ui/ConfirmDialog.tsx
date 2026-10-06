@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useDialog } from "@/hooks/useDialog"
 import { AlertTriangle } from "lucide-react"
 
 interface ConfirmDialogProps {
@@ -27,16 +28,11 @@ export function ConfirmDialog({
   const [acknowledged, setAcknowledged] = useState(false)
   const canConfirm = !acknowledgement || acknowledged
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onCancel])
+  const dialogRef = useDialog<HTMLDivElement>(onCancel)
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"

@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Fraunces', Georgia, serif;
-  --font-sans: 'Fraunces', Georgia, serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-fraunces), Georgia, serif;
+  --font-mono: var(--font-jetbrains), 'Fira Code', monospace;
 }
 
 :root {
@@ -58,9 +56,9 @@
   --shadow-glow: 0 0 0 3px var(--accent-glow);
 
   /* Typography */
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body:    'Fraunces', Georgia, serif;
-  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body:    var(--font-fraunces), Georgia, serif;
+  --font-mono:    var(--font-jetbrains), 'Fira Code', monospace;
 
   --text-xs:   0.75rem;
   --text-sm:   0.875rem;
@@ -272,4 +270,90 @@ input, textarea, select {
   letter-spacing: 0.02em;
   text-shadow: 0 0 15px rgba(214, 168, 67, 0.6);
   color: var(--accent-primary) !important;
+}
+
+/* ===== App shell: desktop vs. mobile is decided here, not in JS, to avoid a layout flash ===== */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-canvas);
+  margin-left: 240px;
+  transition: margin-left var(--transition-slow);
+}
+
+.app-shell[data-collapsed="true"] .app-main {
+  margin-left: 64px;
+}
+
+.app-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.app-sidebar-toggle {
+  position: fixed;
+  top: 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 101;
+  box-shadow: var(--shadow-sm);
+  transition: left var(--transition-slow), background var(--transition-fast), color var(--transition-fast);
+}
+
+.app-sidebar-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.app-mobile-only {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .app-desktop-only {
+    display: none;
+  }
+  .app-mobile-only {
+    display: block;
+  }
+  .app-main,
+  .app-shell[data-collapsed="true"] .app-main {
+    margin-left: 0;
+  }
+  .app-content {
+    padding: 16px;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* ===== Accessibility ===== */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,7 +1,24 @@
 import type { Metadata } from "next"
+import { Fraunces, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/Providers"
-import { ToastContainer } from "@/components/ui/Toast"
+import { ToastProvider } from "@/components/ui/Toast"
+
+// Self-hosted at build time: no requests to Google Fonts at runtime
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+  variable: "--font-fraunces",
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "GitFit — Your GitHub, finally under control",
@@ -16,11 +33,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fraunces.variable} ${jetbrainsMono.variable}`}>
       <body>
         <Providers>
-          {children}
-          <ToastContainer />
+          <ToastProvider>{children}</ToastProvider>
         </Providers>
       </body>
     </html>

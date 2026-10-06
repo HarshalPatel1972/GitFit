@@ -86,7 +86,6 @@ export function Select<T extends string | number>({ value, onChange, options, va
           cursor: "pointer",
           whiteSpace: "nowrap",
           transition: "all var(--transition-fast)",
-          outline: "none",
           userSelect: "none",
           width: "100%",
         }}

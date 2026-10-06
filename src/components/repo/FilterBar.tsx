@@ -102,6 +102,7 @@ export function FilterBar({
         <Search size={14} color="var(--text-muted)" />
         <input
           type="text"
+          aria-label="Search repositories"
           placeholder="Search repos..."
           value={filters.search}
           onChange={(e) => onFilterChange("search", e.target.value)}

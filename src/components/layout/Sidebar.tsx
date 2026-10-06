@@ -71,6 +71,7 @@ export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarPr
         {onClose && !isCollapsed && (
           <button
             onClick={onClose}
+            aria-label="Close menu"
             style={{ color: "var(--text-muted)", padding: 4 }}
           >
             <X size={18} />
@@ -96,6 +97,9 @@ export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarPr
               key={item.href}
               href={item.href}
               title={isCollapsed ? item.label : undefined}
+              aria-label={isCollapsed ? item.label : undefined}
+              aria-current={currentPath.startsWith(item.href) ? "page" : undefined}
+              onClick={onClose}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -144,6 +148,9 @@ export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarPr
         <Link
           href="/settings"
           title={isCollapsed ? "Settings" : undefined}
+          aria-label={isCollapsed ? "Settings" : undefined}
+          aria-current={currentPath.startsWith("/settings") ? "page" : undefined}
+          onClick={onClose}
           style={{
             display: "flex",
             alignItems: "center",
@@ -209,8 +216,11 @@ export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarPr
             }}
           >
             {session.user.image && (
+              // eslint-disable-next-line @next/next/no-img-element -- 32px avatar; GitHub already serves it sized
               <img
                 src={session.user.image}
+                width={32}
+                height={32}
                 alt=""
                 style={{
                   width: 32,
@@ -238,8 +248,9 @@ export function Sidebar({ currentPath, onClose, isCollapsed = false }: SidebarPr
         )}
 
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => signOut({ redirectTo: "/" })}
           title={isCollapsed ? "Sign out" : undefined}
+          aria-label={isCollapsed ? "Sign out" : undefined}
           style={{
             display: "flex",
             alignItems: "center",

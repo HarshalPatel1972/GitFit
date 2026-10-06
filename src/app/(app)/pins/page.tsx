@@ -18,6 +18,7 @@ import {
 import { fetchPinnedItems, fetchPinnableRepos } from "@/lib/github/pins"
 import { unwrap } from "@/lib/result"
 import { ErrorState } from "@/components/ui/ErrorState"
+import { useDialog } from "@/hooks/useDialog"
 import { useToast } from "@/components/ui/Toast"
 import type { Pin } from "@/types"
 
@@ -101,6 +102,22 @@ export default function PinsPage() {
     return false
   }
 
+  // Keyboard alternative to dragging: Alt + Arrow keys move the focused pin
+  const handlePinKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+    if (!e.altKey) return
+    const delta = e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : 0
+    const target = index + delta
+    if (delta === 0 || target < 0 || target >= pins.length) return
+    e.preventDefault()
+    const newPins = [...pins]
+    const [moved] = newPins.splice(index, 1)
+    newPins.splice(target, 0, moved)
+    setLocalPins(newPins)
+    // Keep focus on the moved card after React re-renders it
+    const grid = e.currentTarget.parentElement
+    requestAnimationFrame(() => (grid?.children[target] as HTMLElement | undefined)?.focus())
+  }
+
   const handleDrop = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault()
     const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"), 10)
@@ -168,6 +185,9 @@ export default function PinsPage() {
           <div
             key={pin.id}
             draggable
+            tabIndex={0}
+            aria-label={`${pin.name}, position ${i + 1} of ${pins.length}. Alt plus arrow keys to move.`}
+            onKeyDown={(e) => handlePinKeyDown(e, i)}
             onDragStart={(e) => handleDragStart(e, i)}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
@@ -195,6 +215,7 @@ export default function PinsPage() {
             
             <button
               onClick={() => removePin(pin.id)}
+              aria-label={`Unpin ${pin.name}`}
               style={{ position: "absolute", top: 14, right: 14, color: "var(--text-muted)", padding: 4 }}
             >
               <X size={16} />
@@ -285,8 +306,9 @@ export default function PinsPage() {
 }
 
 function WhyModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Why pins stay in GitFit" style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)", animation: "fadeIn 200ms ease-out" }} />
       <div style={{ 
         position: "relative", background: "var(--bg-elevated)", border: "1px solid var(--border-default)",
@@ -356,13 +378,14 @@ function AddPinModal({
   onClose: () => void
 }) {
   const [search, setSearch] = useState("")
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
   const filtered = repos.filter((r) => 
     r.name.toLowerCase().includes(search.toLowerCase()) || 
     (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
   )
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Pin a repository" style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)", animation: "fadeIn 200ms ease-out" }} />
       <div style={{ position: "relative", background: "var(--bg-elevated)", border: "1px solid var(--border-default)", padding: "32px", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "scaleIn 200ms ease-out" }}>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)", fontWeight: 700, marginBottom: 20 }}>Pin to Dashboard</h2>

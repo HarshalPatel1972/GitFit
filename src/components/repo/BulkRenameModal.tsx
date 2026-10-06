@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
+import { useDialog } from "@/hooks/useDialog"
 import { Pencil } from "lucide-react"
 
 type RenameMode = "prefix" | "suffix" | "find-replace"
@@ -64,16 +65,11 @@ export function BulkRenameModal({
   const changedCount = previews.filter((p) => p.changed).length
   const hasChanges = changedCount > 0 && errors.size === 0
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       style={{

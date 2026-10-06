@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { Star, Circle, ExternalLink, Search } from "lucide-react"
@@ -12,7 +12,7 @@ import { BulkProgress } from "@/components/ui/BulkProgress"
 import { bulkUnstar } from "@/lib/actions/stars"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
-import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
+import { useSelectionShortcuts } from "@/hooks/useSelectionShortcuts"
 import type { GitFitStar } from "@/types"
 
 export default function StarsPage() {
@@ -74,16 +74,7 @@ export default function StarsPage() {
   const { selectedIds, selectedCount, hasSelection, toggle, selectAll, deselectAll, isSelected } = useSelection()
   const selectedNames = useMemo(() => Array.from(selectedIds), [selectedIds])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return
-      if (e.key === "Escape") deselectAll()
-      if (isSelectAllShortcut(e)) { e.preventDefault(); selectAll(allIds) }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [allIds, selectAll, deselectAll])
+  useSelectionShortcuts({ allIds, selectAll, deselectAll, searchInputId: "search-stars" })
 
   const handleBulkUnstar = useCallback(async () => {
     if (selectedNames.length === 0) return
@@ -155,7 +146,7 @@ export default function StarsPage() {
         }}>
           <Search size={14} color="var(--text-muted)" />
           <input
-            type="text" placeholder="Search stars..." value={search}
+            id="search-stars" type="text" aria-label="Search stars" placeholder="Search stars..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-primary)", minWidth: 0 }}
           />

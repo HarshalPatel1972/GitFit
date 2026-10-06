@@ -24,13 +24,3 @@ export async function bulkCloseIssues(
     return octokit.rest.issues.update({ owner, repo, issue_number: number, state: "closed" })
   })
 }
-
-export async function bulkAddLabels(
-  issues: IssueRef[],
-  labels: string[]
-): Promise<ActionResult<BulkActionResult>> {
-  const octokit = await getOctokit()
-  return settleEach(issues, issueName, ({ owner, repo, number }) =>
-    octokit.rest.issues.addLabels({ owner, repo, issue_number: number, labels })
-  )
-}

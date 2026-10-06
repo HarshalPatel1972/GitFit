@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
+import { useDialog } from "@/hooks/useDialog"
 import { Tags, X, Plus } from "lucide-react"
 
 interface BulkTopicEditorProps {
@@ -38,13 +39,7 @@ export function BulkTopicEditor({
     setTopics((prev) => prev.filter((t) => t !== tag))
   }, [])
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose])
+  const dialogRef = useDialog<HTMLDivElement>(onClose)
 
   const handleSubmit = () => {
     if (topics.length === 0) return
@@ -54,6 +49,7 @@ export function BulkTopicEditor({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       style={{
@@ -180,6 +176,7 @@ export function BulkTopicEditor({
           />
           <button
             onClick={addTopic}
+            aria-label="Add topic"
             style={{
               padding: "8px 12px",
               background: "var(--accent-glow)",
@@ -223,6 +220,7 @@ export function BulkTopicEditor({
                 {tag}
                 <button
                   onClick={() => removeTopic(tag)}
+                  aria-label={`Remove ${tag}`}
                   style={{
                     color: "var(--accent-primary)",
                     display: "flex",

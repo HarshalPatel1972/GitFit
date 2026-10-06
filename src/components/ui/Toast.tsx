@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react"
+import { createContext, useContext, useState, useCallback } from "react"
 import { X } from "lucide-react"
 
 type ToastType = "success" | "error" | "info"
@@ -22,23 +22,12 @@ const ToastContext = createContext<ToastContextType | null>(null)
 
 export function useToast(): ToastContextType {
   const context = useContext(ToastContext)
-  if (!context) {
-    // Return no-op fallback for SSR / static generation
-    return {
-      addToast: () => {},
-      removeToast: () => {},
-    }
-  }
+  if (!context) throw new Error("useToast must be used inside <ToastProvider>")
   return context
 }
 
-// We need to export a singleton so server-action callers can use it
-let globalAddToast: ((toast: Omit<Toast, "id">) => void) | null = null
-export function getToastFn() {
-  return globalAddToast
-}
-
-export function ToastContainer() {
+/** Provides useToast() to everything inside it and renders the toast stack. */
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const removeToast = useCallback((id: string) => {
@@ -58,17 +47,12 @@ export function ToastContainer() {
     [removeToast]
   )
 
-  // Expose globally
-  useEffect(() => {
-    globalAddToast = addToast
-    return () => {
-      globalAddToast = null
-    }
-  }, [addToast])
-
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
+      {children}
       <div
+        role="status"
+        aria-live="polite"
         style={{
           position: "fixed",
           top: 20,
@@ -78,7 +62,7 @@ export function ToastContainer() {
           flexDirection: "column",
           gap: 8,
           maxWidth: 420,
-          width: "100%",
+          width: "calc(100% - 40px)",
           pointerEvents: "none",
         }}
       >
@@ -165,6 +149,7 @@ function ToastItem({
 
       <button
         onClick={onDismiss}
+        aria-label="Dismiss notification"
         style={{
           color: "var(--text-muted)",
           padding: 2,

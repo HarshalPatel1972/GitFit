@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { RefreshCw, Skull } from "lucide-react"
@@ -20,7 +20,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { BulkTopicEditor } from "@/components/repo/BulkTopicEditor"
 import { BulkRenameModal } from "@/components/repo/BulkRenameModal"
 import { useSettings } from "@/hooks/useSettings"
-import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
+import { useSelectionShortcuts } from "@/hooks/useSelectionShortcuts"
 import {
   bulkArchive,
   bulkUnarchive,
@@ -139,24 +139,7 @@ export default function DashboardPage() {
     []
   )
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return
-
-      if (e.key === "/") {
-        e.preventDefault()
-        document.getElementById("search-repos")?.focus()
-      }
-      if (e.key === "Escape") deselectAll()
-      if (isSelectAllShortcut(e)) {
-        e.preventDefault()
-        selectAll(allIds)
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [allIds, selectAll, deselectAll])
+  useSelectionShortcuts({ allIds, selectAll, deselectAll, searchInputId: "search-repos" })
 
   // Bulk action handlers
   const handleBulkAction = useCallback(
@@ -245,6 +228,7 @@ export default function DashboardPage() {
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
+            aria-label="Refresh repositories"
             style={{
               color: "var(--text-muted)",
               padding: 6,

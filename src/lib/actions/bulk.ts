@@ -61,15 +61,6 @@ export async function bulkRemoveTopics(repoFullNames: string[], topicsToRemove: 
   })
 }
 
-export async function bulkUpdateDescription(
-  updates: { fullName: string; description: string }[]
-): Result {
-  const octokit = await getOctokit()
-  return settleEach(updates, (u) => u.fullName, ({ fullName, description }) =>
-    octokit.rest.repos.update({ ...splitFullName(fullName), description })
-  )
-}
-
 export async function bulkRename(renames: { fullName: string; newName: string }[]): Result {
   const octokit = await getOctokit()
   return settleEach(renames, (r) => r.fullName, ({ fullName, newName }) =>

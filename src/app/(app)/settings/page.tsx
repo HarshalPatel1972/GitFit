@@ -128,7 +128,7 @@ export default function SettingsPage() {
           Disconnect your GitHub account and sign out.
         </p>
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => signOut({ redirectTo: "/" })}
           style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "10px 20px", fontSize: "var(--text-sm)", fontWeight: 600,

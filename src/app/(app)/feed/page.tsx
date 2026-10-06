@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
@@ -20,7 +20,7 @@ import { BulkProgress } from "@/components/ui/BulkProgress"
 import { bulkCloseIssues } from "@/lib/actions/feed"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
-import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
+import { useSelectionShortcuts } from "@/hooks/useSelectionShortcuts"
 import type { FeedItem } from "@/types"
 
 type FeedTab = "prs" | "issues" | "stale"
@@ -100,16 +100,7 @@ export default function FeedPage() {
   const allIds = useMemo(() => currentItems.map((i) => String(i.id)), [currentItems])
   const { selectedIds, selectedCount, hasSelection, toggle, selectAll, deselectAll, isSelected } = useSelection()
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return
-      if (e.key === "Escape") deselectAll()
-      if (isSelectAllShortcut(e)) { e.preventDefault(); selectAll(allIds) }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [allIds, selectAll, deselectAll])
+  useSelectionShortcuts({ allIds, selectAll, deselectAll, searchInputId: "search-feed" })
 
   const handleBulkClose = useCallback(async () => {
     if (selectedCount === 0 || !issues) return
@@ -223,7 +214,7 @@ export default function FeedPage() {
         }}>
           <Search size={14} color="var(--text-muted)" />
           <input
-            type="text" placeholder="Search..." value={search}
+            id="search-feed" type="text" aria-label="Search issues and pull requests" placeholder="Search..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-primary)", minWidth: 0 }}
           />

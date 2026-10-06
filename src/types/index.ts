@@ -86,7 +86,6 @@ export interface Pin {
 export type Visibility = "all" | "public" | "private"
 export type Status = "all" | "active" | "archived"
 export type SortOption = "updated" | "name" | "stars" | "size" | "created"
-export type ViewMode = "grid" | "list"
 export type FilterPreset = "all" | "dead"
 
 export interface Filters {
