@@ -1,16 +1,24 @@
 import type { Metadata, Viewport } from "next"
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site"
-import { Fraunces, JetBrains_Mono } from "next/font/google"
+import { Barlow, Barlow_Condensed, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/Providers"
 import { ToastProvider } from "@/components/ui/Toast"
 
-// Self-hosted at build time: no requests to Google Fonts at runtime
-const fraunces = Fraunces({
+// Self-hosted at build time: no requests to Google Fonts at runtime.
+// Barlow: a clean signage grotesk; its condensed cut carries the headlines.
+const barlow = Barlow({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-barlow",
+  display: "swap",
+})
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
   style: ["normal", "italic"],
-  axes: ["opsz"],
-  variable: "--font-fraunces",
+  variable: "--font-barlow-condensed",
   display: "swap",
 })
 
@@ -52,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${barlow.variable} ${barlowCondensed.variable} ${jetbrainsMono.variable}`}>
       <body>
         <Providers>
           <ToastProvider>{children}</ToastProvider>

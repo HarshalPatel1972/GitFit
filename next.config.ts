@@ -10,7 +10,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data: https://avatars.githubusercontent.com",
-  "connect-src 'self'",
+  // The landing-page check-up reads public repos straight from GitHub in the browser
+  "connect-src 'self' https://api.github.com",
   "object-src 'none'",
   "base-uri 'self'",
   // Sign-in submits a form that redirects to GitHub's OAuth page

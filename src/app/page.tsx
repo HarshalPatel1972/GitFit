@@ -1,5 +1,5 @@
 import { signIn } from "@/lib/auth"
-import { LandingContent } from "@/components/landing/LandingContent"
+import { Landing } from "@/components/landing/Landing"
 
 const notices: Record<string, string> = {
   session_expired: "Your GitHub session expired or access was revoked. Please sign in again.",
@@ -12,7 +12,7 @@ export default async function LandingPage({
 }) {
   const { error } = await searchParams
   return (
-    <LandingContent
+    <Landing
       notice={error ? notices[error] : undefined}
       signInAction={async () => {
         "use server"
