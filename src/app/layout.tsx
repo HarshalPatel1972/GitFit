@@ -1,4 +1,5 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site"
 import { Fraunces, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/Providers"
@@ -21,10 +22,28 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "GitFit — Your GitHub, finally under control",
-  description:
-    "Bulk manage your GitHub repos, stars, pins, and issues. Archive, privatize, delete, tag, and rename — all in one warm, fast dashboard.",
-  icons: { icon: "/icon.png" },
+  metadataBase: new URL(SITE_URL),
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#0d0b09",
+  colorScheme: "dark",
 }
 
 export default function RootLayout({

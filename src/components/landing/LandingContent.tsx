@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { FolderKanban, Search, Star, Pin, GitPullRequest, Tags } from "lucide-react"
 
 function GitHubIcon({ size = 20 }: { size?: number }) {
@@ -117,6 +118,10 @@ export function LandingContent({ signInAction, notice }: LandingContentProps) {
             Sign in with GitHub
           </button>
         </form>
+        <p style={{ marginTop: 12, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+          By signing in you agree to the <Link href="/terms" style={{ textDecoration: "underline" }}>Terms</Link> and{" "}
+          <Link href="/privacy" style={{ textDecoration: "underline" }}>Privacy Policy</Link>.
+        </p>
       </main>
 
       {/* Feature Grid */}
@@ -193,6 +198,11 @@ export function LandingContent({ signInAction, notice }: LandingContentProps) {
         }}
       >
         Open source. No data stored. Reads and writes only through GitHub&apos;s official API.
+        <nav aria-label="Legal" style={{ marginTop: 10, display: "flex", gap: 16, justifyContent: "center", fontStyle: "normal" }}>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <a href="https://github.com/HarshalPatel1972/GitFit" target="_blank" rel="noopener noreferrer">Source</a>
+        </nav>
       </footer>
     </div>
   )

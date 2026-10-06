@@ -73,18 +73,30 @@ To run your own instance of GitFit:
    ```
 
 2. **Configure Environment**
-   Create a `.env.local` with your GitHub OAuth credentials:
+   Create a [GitHub OAuth App](https://github.com/settings/developers) with the callback URL
+   `http://localhost:3000/api/auth/callback/github`, then copy `.env.example` to `.env.local` and fill it in:
    ```env
+   AUTH_SECRET=xxx            # openssl rand -base64 32
    GITHUB_CLIENT_ID=xxx
    GITHUB_CLIENT_SECRET=xxx
-   NEXTAUTH_SECRET=xxx
-   NEXTAUTH_URL=http://localhost:3000
    ```
 
 3. **Launch**
    ```bash
    npm run dev
    ```
+
+4. **Check your changes**
+   ```bash
+   npm run lint && npm run typecheck && npm test && npm run build
+   ```
+   CI runs the same checks on every pull request.
+
+---
+
+## 🔒 Security
+
+Found a vulnerability? Please report it privately. See [SECURITY.md](SECURITY.md).
 
 ---
 

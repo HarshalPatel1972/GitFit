@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { signOut } from "next-auth/react"
 import { LogOut, Keyboard } from "lucide-react"
 import { Select } from "@/components/ui/Select"
@@ -125,7 +126,16 @@ export default function SettingsPage() {
         <p style={{
           fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: 16,
         }}>
-          Disconnect your GitHub account and sign out.
+          Sign out of GitFit. To fully disconnect, also revoke GitFit in{" "}
+          <a
+            href="https://github.com/settings/applications"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--accent-primary)", textDecoration: "underline" }}
+          >
+            GitHub&apos;s application settings
+          </a>
+          . See our <Link href="/privacy" style={{ textDecoration: "underline" }}>Privacy Policy</Link>.
         </p>
         <button
           onClick={() => signOut({ redirectTo: "/" })}

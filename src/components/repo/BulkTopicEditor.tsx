@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { useDialog } from "@/hooks/useDialog"
+import { normalizeTopic } from "@/lib/validation"
 import { Tags, X, Plus } from "lucide-react"
 
 interface BulkTopicEditorProps {
@@ -22,13 +23,7 @@ export function BulkTopicEditor({
   const [topics, setTopics] = useState<string[]>([])
 
   const addTopic = useCallback(() => {
-    const tag = input
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 50)
+    const tag = normalizeTopic(input)
     if (tag && !topics.includes(tag)) {
       setTopics((prev) => [...prev, tag])
     }

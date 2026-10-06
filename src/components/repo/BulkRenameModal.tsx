@@ -2,18 +2,10 @@
 
 import { useState, useMemo } from "react"
 import { useDialog } from "@/hooks/useDialog"
+import { validateRepoName } from "@/lib/validation"
 import { Pencil } from "lucide-react"
 
 type RenameMode = "prefix" | "suffix" | "find-replace"
-
-// GitHub repo names: letters, digits, ".", "-", "_", up to 100 chars, not "." or ".."
-function validateRepoName(name: string): string | null {
-  if (!name) return "Name cannot be empty"
-  if (name.length > 100) return "Longer than 100 characters"
-  if (name === "." || name === "..") return "Reserved name"
-  if (!/^[A-Za-z0-9._-]+$/.test(name)) return "Only letters, numbers, . - _ allowed"
-  return null
-}
 
 interface BulkRenameModalProps {
   selectedNames: string[]
