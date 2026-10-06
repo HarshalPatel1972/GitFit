@@ -13,6 +13,9 @@ import { FilterBar } from "@/components/repo/FilterBar"
 import { BulkActionBar } from "@/components/repo/BulkActionBar"
 import { BulkDeleteConfirm } from "@/components/repo/BulkDeleteConfirm"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { BulkTopicEditor } from "@/components/repo/BulkTopicEditor"
+import { BulkRenameModal } from "@/components/repo/BulkRenameModal"
+import { useSettings } from "@/hooks/useSettings"
 import { isEditableTarget, isModalOpen, isSelectAllShortcut } from "@/lib/keyboard"
 import {
   bulkArchive,
@@ -20,8 +23,23 @@ import {
   bulkPrivatize,
   bulkPublicize,
   bulkDelete,
+  bulkAddTopics,
+  bulkRemoveTopics,
+  bulkRename,
 } from "@/lib/actions/bulk"
-import type { Filters, GitFitRepo } from "@/types"
+import type { Filters, GitFitRepo, SortOption } from "@/types"
+
+// `sort: null` means "use the default sort from Settings"
+type FilterState = Omit<Filters, "sort"> & { sort: SortOption | null }
+
+const initialFilters: FilterState = {
+  search: "",
+  visibility: "all",
+  status: "all",
+  language: "",
+  sort: null,
+  preset: "all",
+}
 
 export default function DashboardPage() {
   const { status } = useSession()
@@ -39,17 +57,17 @@ export default function DashboardPage() {
     enabled: status === "authenticated",
   })
 
-  const [filters, setFilters] = useState<Filters>({
-    search: "",
-    visibility: "all",
-    status: "all",
-    language: "",
-    sort: "updated",
-    preset: "all",
-  })
+  const { settings } = useSettings()
+  const [filterState, setFilters] = useState<FilterState>(initialFilters)
+  const filters = useMemo<Filters>(
+    () => ({ ...filterState, sort: filterState.sort ?? settings.defaultSort }),
+    [filterState, settings.defaultSort]
+  )
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [visibilityConfirm, setVisibilityConfirm] = useState<"private" | "public" | null>(null)
+  const [showTopicEditor, setShowTopicEditor] = useState(false)
+  const [showRenameModal, setShowRenameModal] = useState(false)
   const [bulkLoading, setBulkLoading] = useState(false)
 
   const filteredRepos = useMemo(
@@ -368,16 +386,7 @@ export default function DashboardPage() {
             Try broadening your search or clearing filters.
           </p>
           <button
-            onClick={() =>
-              setFilters({
-                search: "",
-                visibility: "all",
-                status: "all",
-                language: "",
-                sort: "updated",
-                preset: "all",
-              })
-            }
+            onClick={() => setFilters(initialFilters)}
             style={{
               padding: "8px 16px",
               fontSize: "var(--text-sm)",
@@ -447,18 +456,8 @@ export default function DashboardPage() {
         }
         onPrivatize={() => setVisibilityConfirm("private")}
         onPublicize={() => setVisibilityConfirm("public")}
-        onTag={() => {
-          addToast({
-            type: "info",
-            message: "Topic editor coming soon!",
-          })
-        }}
-        onRename={() => {
-          addToast({
-            type: "info",
-            message: "Rename editor coming soon!",
-          })
-        }}
+        onTag={() => setShowTopicEditor(true)}
+        onRename={() => setShowRenameModal(true)}
         onDelete={() => setShowDeleteModal(true)}
         onDismiss={deselectAll}
       />
@@ -477,6 +476,68 @@ export default function DashboardPage() {
               undefined,
               (repos, succeeded) =>
                 repos.filter((r) => !succeeded.includes(r.full_name))
+            )
+          }}
+        />
+      )}
+
+      {showTopicEditor && (
+        <BulkTopicEditor
+          selectedCount={selectedCount}
+          onClose={() => setShowTopicEditor(false)}
+          onAdd={async (topics) => {
+            setShowTopicEditor(false)
+            await handleBulkAction(
+              (names) => bulkAddTopics(names, topics),
+              "Topics added",
+              undefined,
+              (repos, succeeded) =>
+                repos.map((r) =>
+                  succeeded.includes(r.full_name)
+                    ? { ...r, topics: [...new Set([...(r.topics || []), ...topics])] }
+                    : r
+                )
+            )
+          }}
+          onRemove={async (topics) => {
+            setShowTopicEditor(false)
+            await handleBulkAction(
+              (names) => bulkRemoveTopics(names, topics),
+              "Topics removed",
+              undefined,
+              (repos, succeeded) =>
+                repos.map((r) =>
+                  succeeded.includes(r.full_name)
+                    ? { ...r, topics: (r.topics || []).filter((t) => !topics.includes(t)) }
+                    : r
+                )
+            )
+          }}
+        />
+      )}
+
+      {showRenameModal && (
+        <BulkRenameModal
+          selectedNames={selectedNames}
+          onClose={() => setShowRenameModal(false)}
+          onConfirm={async (renames) => {
+            setShowRenameModal(false)
+            const newNames = new Map(renames.map((r) => [`${r.owner}/${r.repo}`, r.newName]))
+            await handleBulkAction(
+              () =>
+                bulkRename(
+                  renames.map((r) => ({ fullName: `${r.owner}/${r.repo}`, newName: r.newName }))
+                ),
+              "Renamed",
+              undefined,
+              (repos, succeeded) =>
+                repos.map((r) => {
+                  const newName = newNames.get(r.full_name)
+                  return newName && succeeded.includes(r.full_name)
+                    ? { ...r, name: newName, full_name: `${r.owner.login}/${newName}` }
+                    : r
+                }),
+              renames.map((r) => `${r.owner}/${r.repo}`)
             )
           }}
         />

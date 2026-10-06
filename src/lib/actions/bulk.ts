@@ -96,6 +96,9 @@ export async function bulkAddTopics(
       // Fetch existing topics first
       const { data } = await octokit.rest.repos.getAllTopics({ owner, repo })
       const merged = [...new Set([...data.names, ...newTopics])]
+      if (merged.length > 20) {
+        throw new Error(`would have ${merged.length} topics (GitHub allows 20)`)
+      }
       return octokit.rest.repos.replaceAllTopics({ owner, repo, names: merged })
     })
   )

@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useSettings } from "@/hooks/useSettings"
 import { Select } from "@/components/ui/Select"
 import { fetchUserIssues, fetchUserPRs } from "@/lib/github/feed"
 import { bulkCloseIssues } from "@/lib/actions/feed"
@@ -41,7 +42,9 @@ export default function FeedPage() {
   const [search, setSearch] = useState("")
   const [repoFilter, setRepoFilter] = useState("")
   const [sort, setSort] = useState<"updated" | "created">("updated")
-  const [staleThreshold, setStaleThreshold] = useState(30)
+  const { settings } = useSettings()
+  const [thresholdOverride, setStaleThreshold] = useState<number | null>(null)
+  const staleThreshold = thresholdOverride ?? settings.staleThreshold
   const [bulkLoading, setBulkLoading] = useState(false)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [closeComment, setCloseComment] = useState("Closing as stale. Feel free to reopen if this is still relevant.")
@@ -53,12 +56,12 @@ export default function FeedPage() {
     return Array.from(unique).sort()
   }, [issues, prs])
 
-  // Stale issues
+  // Stale issues: no activity (comments, edits, labels) within the threshold
   const staleIssues = useMemo(() => {
     if (!issues) return []
     const threshold = new Date()
     threshold.setDate(threshold.getDate() - staleThreshold)
-    return issues.filter((i) => new Date(i.created_at) < threshold)
+    return issues.filter((i) => new Date(i.updated_at) < threshold)
   }, [issues, staleThreshold])
 
   // Current tab items
@@ -223,7 +226,7 @@ export default function FeedPage() {
         {tab === "stale" && (
           <Select
             value={staleThreshold}
-            onChange={(val) => setStaleThreshold(Number(val))}
+            onChange={(val) => setStaleThreshold(val)}
             options={[
               { value: 30, label: "30 days" },
               { value: 60, label: "60 days" },

@@ -1,44 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { signOut } from "next-auth/react"
 import { LogOut, Keyboard } from "lucide-react"
 import { Select } from "@/components/ui/Select"
-
-interface AppSettings {
-  defaultSort: string
-  defaultView: string
-  staleThreshold: number
-}
-
-const defaultSettings: AppSettings = {
-  defaultSort: "updated",
-  defaultView: "grid",
-  staleThreshold: 30,
-}
+import { useSettings } from "@/hooks/useSettings"
+import type { SortOption } from "@/types"
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings)
+  const { settings, updateSetting } = useSettings()
   const [showShortcuts, setShowShortcuts] = useState(false)
-
-  useEffect(() => {
-    const saved = localStorage.getItem("gitfit-settings")
-    if (saved) {
-      try {
-        setSettings({ ...defaultSettings, ...JSON.parse(saved) })
-      } catch {
-        // ignore
-      }
-    }
-  }, [])
-
-  const updateSetting = (key: keyof AppSettings, value: string | number) => {
-    setSettings((prev) => {
-      const next = { ...prev, [key]: value }
-      localStorage.setItem("gitfit-settings", JSON.stringify(next))
-      return next
-    })
-  }
 
   return (
     <div style={{ maxWidth: 600 }}>
@@ -54,7 +25,7 @@ export default function SettingsPage() {
         <SettingRow label="Default sort">
           <Select
             value={settings.defaultSort}
-            onChange={(val) => updateSetting("defaultSort", val)}
+            onChange={(val: SortOption) => updateSetting("defaultSort", val)}
             options={[
               { value: "updated", label: "Last Updated" },
               { value: "name", label: "Name" },
@@ -65,40 +36,14 @@ export default function SettingsPage() {
             variant="rect"
           />
         </SettingRow>
-
-        <SettingRow label="Default view">
-          <div style={{ display: "flex", gap: 6 }}>
-            {["grid", "list"].map((v) => (
-              <button
-                key={v}
-                onClick={() => updateSetting("defaultView", v)}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "var(--text-sm)",
-                  fontWeight: settings.defaultView === v ? 600 : 400,
-                  color: settings.defaultView === v ? "var(--accent-primary)" : "var(--text-secondary)",
-                  background: settings.defaultView === v ? "var(--accent-glow)" : "var(--bg-elevated)",
-                  border: "1px solid",
-                  borderColor: settings.defaultView === v ? "var(--accent-primary)" : "var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  textTransform: "capitalize",
-                  transition: "all var(--transition-fast)",
-                  cursor: "pointer",
-                }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </SettingRow>
       </Section>
 
       {/* Feed */}
       <Section title="Feed">
-        <SettingRow label="Stale threshold">
+        <SettingRow label="Issues are stale after no activity for">
           <Select
             value={settings.staleThreshold}
-            onChange={(val) => updateSetting("staleThreshold", Number(val))}
+            onChange={(val) => updateSetting("staleThreshold", val)}
             options={[
               { value: 30, label: "30 days" },
               { value: 60, label: "60 days" },
@@ -235,4 +180,3 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
   )
 }
 
-// selectStyle removed in favor of the Select component

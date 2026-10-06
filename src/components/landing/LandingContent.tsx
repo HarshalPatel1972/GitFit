@@ -199,8 +199,8 @@ const features = [
   },
   {
     icon: <Pin size={22} />,
-    title: "Pin Editor",
-    desc: "Drag, reorder, publish. Visual pin management.",
+    title: "Pin Board",
+    desc: "Drag your most important repos into a private shortlist.",
   },
   {
     icon: <GitPullRequest size={22} />,
