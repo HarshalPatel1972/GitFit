@@ -16,6 +16,8 @@ import {
   Search
 } from "lucide-react"
 import { fetchPinnedItems, fetchPinnableRepos } from "@/lib/github/pins"
+import { unwrap } from "@/lib/result"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { useToast } from "@/components/ui/Toast"
 import type { Pin } from "@/types"
 
@@ -23,15 +25,21 @@ export default function PinsPage() {
   const { data: session, status } = useSession()
   const { addToast } = useToast()
 
-  const { data: remotePinnedItems, isLoading: pinsLoading } = useQuery({
+  const {
+    data: remotePinnedItems,
+    isLoading: pinsLoading,
+    isError: pinsError,
+    error: pinsErrorValue,
+    refetch: refetchPins,
+  } = useQuery({
     queryKey: ["pins"],
-    queryFn: fetchPinnedItems,
+    queryFn: async () => unwrap(await fetchPinnedItems()),
     enabled: status === "authenticated",
   })
 
   const { data: pinnableRepos } = useQuery({
     queryKey: ["pinnable-repos"],
-    queryFn: fetchPinnableRepos,
+    queryFn: async () => unwrap(await fetchPinnableRepos()),
     enabled: status === "authenticated",
   })
 
@@ -152,6 +160,8 @@ export default function PinsPage() {
           doesn&apos;t let apps change the pins on your public profile, so these stay in GitFit.
         </p>
       </div>
+
+      {pinsError && !savedPins && <ErrorState error={pinsErrorValue} onRetry={() => refetchPins()} />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, marginBottom: 28 }}>
         {pins.map((pin, i) => (

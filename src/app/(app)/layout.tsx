@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { MobileHeader } from "@/components/layout/MobileHeader"
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -129,7 +130,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             padding: isMobile ? "16px" : "32px 24px",
           }}
         >
-          {children}
+          <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
         </div>
       </main>
 

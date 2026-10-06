@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
   ExternalLink,
@@ -13,7 +13,10 @@ import {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useSettings } from "@/hooks/useSettings"
 import { Select } from "@/components/ui/Select"
-import { fetchUserIssues, fetchUserPRs } from "@/lib/github/feed"
+import { fetchIssuesPage, fetchPRsPage } from "@/lib/github/feed"
+import { fetchAllPages, runBulk, handleSessionExpiry, errorMessage } from "@/lib/client-actions"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { BulkProgress } from "@/components/ui/BulkProgress"
 import { bulkCloseIssues } from "@/lib/actions/feed"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
@@ -26,17 +29,22 @@ export default function FeedPage() {
   const { status } = useSession()
   const { addToast } = useToast()
 
-  const { data: issues, isLoading: issuesLoading } = useQuery({
+  const queryClient = useQueryClient()
+  // Issues and PRs are capped at 1,000 each (GitHub search returns no more than that)
+  const issuesQuery = useQuery({
     queryKey: ["issues"],
-    queryFn: fetchUserIssues,
+    queryFn: () => fetchAllPages(fetchIssuesPage, { maxPages: 10 }),
     enabled: status === "authenticated",
   })
-
-  const { data: prs, isLoading: prsLoading } = useQuery({
+  const prsQuery = useQuery({
     queryKey: ["prs"],
-    queryFn: fetchUserPRs,
+    queryFn: () => fetchAllPages(fetchPRsPage, { maxPages: 10 }),
     enabled: status === "authenticated",
   })
+  const issues = issuesQuery.data?.items
+  const prs = prsQuery.data?.items
+  const issuesLoading = issuesQuery.isLoading
+  const prsLoading = prsQuery.isLoading
 
   const [tab, setTab] = useState<FeedTab>("prs")
   const [search, setSearch] = useState("")
@@ -46,6 +54,7 @@ export default function FeedPage() {
   const [thresholdOverride, setStaleThreshold] = useState<number | null>(null)
   const staleThreshold = thresholdOverride ?? settings.staleThreshold
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [closeComment, setCloseComment] = useState("Closing as stale. Feel free to reopen if this is still relevant.")
 
@@ -110,20 +119,36 @@ export default function FeedPage() {
       .map((i) => ({ owner: i.repo.owner, repo: i.repo.name, number: i.number }))
 
     try {
-      const result = await bulkCloseIssues(selectedIssues, closeComment)
+      const result = await runBulk(selectedIssues, (batch) => bulkCloseIssues(batch, closeComment), {
+        nameOf: (i) => `${i.owner}/${i.repo}#${i.number}`,
+        onProgress: (done, total) => setBulkProgress({ done, total }),
+      })
       if (result.succeeded.length > 0) {
-        addToast({ type: "success", message: `Closed ${result.succeeded.length} issues` })
+        const closed = new Set(result.succeeded)
+        queryClient.setQueryData(
+          ["issues"],
+          (old: { items: FeedItem[]; truncated: boolean } | undefined) =>
+            old && {
+              ...old,
+              items: old.items.filter((i) => !closed.has(`${i.repo.full_name}#${i.number}`)),
+            }
+        )
+        addToast({ type: "success", message: `Closed ${result.succeeded.length} issue${result.succeeded.length === 1 ? "" : "s"}` })
       }
       if (result.failed.length > 0) {
-        addToast({ type: "error", message: `Failed: ${result.failed.map((f) => f.name).join(", ")}`, duration: 5000 })
+        const shown = result.failed.slice(0, 3).map((f) => `${f.name} (${f.error})`).join(", ")
+        const more = result.failed.length > 3 ? ` and ${result.failed.length - 3} more` : ""
+        addToast({ type: "error", message: `Failed: ${shown}${more}`, duration: 8000 })
       }
       deselectAll()
-    } catch {
-      addToast({ type: "error", message: "Failed to close issues" })
+    } catch (err) {
+      if (handleSessionExpiry(err)) return
+      addToast({ type: "error", message: `Failed to close issues: ${errorMessage(err)}` })
     } finally {
       setBulkLoading(false)
+      setBulkProgress(null)
     }
-  }, [selectedIds, selectedCount, issues, closeComment, addToast, deselectAll])
+  }, [selectedIds, selectedCount, issues, closeComment, queryClient, addToast, deselectAll])
 
   const selectedIssueNames = useMemo(
     () =>
@@ -134,6 +159,7 @@ export default function FeedPage() {
   )
 
   const isLoading = issuesLoading || prsLoading
+  const activeQuery = tab === "prs" ? prsQuery : issuesQuery
 
   return (
     <div>
@@ -237,6 +263,19 @@ export default function FeedPage() {
         )}
       </div>
 
+      {/* Errors and truncation */}
+      {activeQuery.isError && (
+        <ErrorState
+          error={activeQuery.error}
+          onRetry={() => activeQuery.refetch()}
+        />
+      )}
+      {activeQuery.data?.truncated && (
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 12 }}>
+          Showing the 1,000 most recently updated {tab === "prs" ? "pull requests" : "issues"}.
+        </p>
+      )}
+
       {/* Loading */}
       {isLoading && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -250,7 +289,7 @@ export default function FeedPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && currentItems.length === 0 && (
+      {!isLoading && !activeQuery.isError && currentItems.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 20px", animation: "fadeIn 300ms ease-out both" }}>
           <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.5 }}>
             {tab === "stale" ? "✓" : "📭"}
@@ -318,6 +357,10 @@ export default function FeedPage() {
             }
           `}</style>
         </div>
+      )}
+
+      {bulkProgress && bulkProgress.total > 10 && (
+        <BulkProgress done={bulkProgress.done} total={bulkProgress.total} />
       )}
 
       {showCloseConfirm && (

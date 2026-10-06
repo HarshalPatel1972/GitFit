@@ -2,6 +2,7 @@
 
 import { getAccessToken } from "@/lib/auth"
 import { graphqlFetch } from "@/lib/github/graphql"
+import { run, type ActionResult } from "@/lib/result"
 import type { Pin } from "@/types"
 
 const GET_PINNED_ITEMS = `
@@ -38,27 +39,16 @@ const GET_PINNABLE_REPOS = `
   }
 `
 
-export async function fetchPinnedItems(): Promise<Pin[]> {
-  const accessToken = await getAccessToken()
-
-  try {
-    const data = await graphqlFetch(accessToken, GET_PINNED_ITEMS)
+export async function fetchPinnedItems(): Promise<ActionResult<Pin[]>> {
+  return run(async () => {
+    const data = await graphqlFetch(await getAccessToken(), GET_PINNED_ITEMS)
     return (data.viewer.pinnedItems.nodes || []) as Pin[]
-  } catch (error) {
-    console.error("fetchPinnedItems error:", error)
-    return []
-  }
+  })
 }
 
-export async function fetchPinnableRepos(): Promise<Pin[]> {
-  const accessToken = await getAccessToken()
-
-  try {
-    const data = await graphqlFetch(accessToken, GET_PINNABLE_REPOS, { first: 100 })
+export async function fetchPinnableRepos(): Promise<ActionResult<Pin[]>> {
+  return run(async () => {
+    const data = await graphqlFetch(await getAccessToken(), GET_PINNABLE_REPOS, { first: 100 })
     return (data.viewer.repositories.nodes || []) as Pin[]
-  } catch (error) {
-    console.error("fetchPinnableRepos error:", error)
-    return []
-  }
+  })
 }
-

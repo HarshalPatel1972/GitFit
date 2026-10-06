@@ -103,4 +103,6 @@ export interface Filters {
 export interface BulkActionResult {
   succeeded: string[]
   failed: { name: string; error: string }[]
+  // True when GitHub rate-limited part of the request
+  rateLimited?: boolean
 }

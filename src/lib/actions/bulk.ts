@@ -1,153 +1,78 @@
 "use server"
 
 import { getOctokit } from "@/lib/github/client"
+import { settleEach, splitFullName } from "@/lib/github/settle"
+import type { ActionResult } from "@/lib/result"
 import type { BulkActionResult } from "@/types"
 
-function summarizeResults(
-  results: PromiseSettledResult<unknown>[],
-  names: string[]
-): BulkActionResult {
-  const succeeded: string[] = []
-  const failed: { name: string; error: string }[] = []
+type Result = Promise<ActionResult<BulkActionResult>>
 
-  results.forEach((result, i) => {
-    if (result.status === "fulfilled") {
-      succeeded.push(names[i])
-    } else {
-      failed.push({
-        name: names[i],
-        error: result.reason?.message || "Unknown error",
-      })
+async function updateEach(repoFullNames: string[], changes: { private?: boolean; archived?: boolean }): Result {
+  const octokit = await getOctokit()
+  return settleEach(repoFullNames, (n) => n, (fullName) =>
+    octokit.rest.repos.update({ ...splitFullName(fullName), ...changes })
+  )
+}
+
+export async function bulkPrivatize(repoFullNames: string[]): Result {
+  return updateEach(repoFullNames, { private: true })
+}
+
+export async function bulkPublicize(repoFullNames: string[]): Result {
+  return updateEach(repoFullNames, { private: false })
+}
+
+export async function bulkArchive(repoFullNames: string[]): Result {
+  return updateEach(repoFullNames, { archived: true })
+}
+
+export async function bulkUnarchive(repoFullNames: string[]): Result {
+  return updateEach(repoFullNames, { archived: false })
+}
+
+export async function bulkDelete(repoFullNames: string[]): Result {
+  const octokit = await getOctokit()
+  return settleEach(repoFullNames, (n) => n, (fullName) =>
+    octokit.rest.repos.delete(splitFullName(fullName))
+  )
+}
+
+export async function bulkAddTopics(repoFullNames: string[], newTopics: string[]): Result {
+  const octokit = await getOctokit()
+  return settleEach(repoFullNames, (n) => n, async (fullName) => {
+    const { owner, repo } = splitFullName(fullName)
+    // Fetch existing topics first
+    const { data } = await octokit.rest.repos.getAllTopics({ owner, repo })
+    const merged = [...new Set([...data.names, ...newTopics])]
+    if (merged.length > 20) {
+      throw new Error(`would have ${merged.length} topics (GitHub allows 20)`)
     }
+    return octokit.rest.repos.replaceAllTopics({ owner, repo, names: merged })
   })
-
-  return { succeeded, failed }
 }
 
-export async function bulkPrivatize(repoFullNames: string[]): Promise<BulkActionResult> {
+export async function bulkRemoveTopics(repoFullNames: string[], topicsToRemove: string[]): Result {
   const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map((fullName) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, private: true })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkPublicize(repoFullNames: string[]): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map((fullName) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, private: false })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkArchive(repoFullNames: string[]): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map((fullName) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, archived: true })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkUnarchive(repoFullNames: string[]): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map((fullName) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, archived: false })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkDelete(repoFullNames: string[]): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map((fullName) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.delete({ owner, repo })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkAddTopics(
-  repoFullNames: string[],
-  newTopics: string[]
-): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map(async (fullName) => {
-      const [owner, repo] = fullName.split("/")
-      // Fetch existing topics first
-      const { data } = await octokit.rest.repos.getAllTopics({ owner, repo })
-      const merged = [...new Set([...data.names, ...newTopics])]
-      if (merged.length > 20) {
-        throw new Error(`would have ${merged.length} topics (GitHub allows 20)`)
-      }
-      return octokit.rest.repos.replaceAllTopics({ owner, repo, names: merged })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
-}
-
-export async function bulkRemoveTopics(
-  repoFullNames: string[],
-  topicsToRemove: string[]
-): Promise<BulkActionResult> {
-  const octokit = await getOctokit()
-
-  const results = await Promise.allSettled(
-    repoFullNames.map(async (fullName) => {
-      const [owner, repo] = fullName.split("/")
-      const { data } = await octokit.rest.repos.getAllTopics({ owner, repo })
-      const filtered = data.names.filter((t: string) => !topicsToRemove.includes(t))
-      return octokit.rest.repos.replaceAllTopics({ owner, repo, names: filtered })
-    })
-  )
-  return summarizeResults(results, repoFullNames)
+  return settleEach(repoFullNames, (n) => n, async (fullName) => {
+    const { owner, repo } = splitFullName(fullName)
+    const { data } = await octokit.rest.repos.getAllTopics({ owner, repo })
+    const filtered = data.names.filter((t: string) => !topicsToRemove.includes(t))
+    return octokit.rest.repos.replaceAllTopics({ owner, repo, names: filtered })
+  })
 }
 
 export async function bulkUpdateDescription(
   updates: { fullName: string; description: string }[]
-): Promise<BulkActionResult> {
+): Result {
   const octokit = await getOctokit()
-
-  const names = updates.map((u) => u.fullName)
-  const results = await Promise.allSettled(
-    updates.map(({ fullName, description }) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, description })
-    })
+  return settleEach(updates, (u) => u.fullName, ({ fullName, description }) =>
+    octokit.rest.repos.update({ ...splitFullName(fullName), description })
   )
-  return summarizeResults(results, names)
 }
 
-export async function bulkRename(
-  renames: { fullName: string; newName: string }[]
-): Promise<BulkActionResult> {
+export async function bulkRename(renames: { fullName: string; newName: string }[]): Result {
   const octokit = await getOctokit()
-
-  const names = renames.map((r) => r.fullName)
-  const results = await Promise.allSettled(
-    renames.map(({ fullName, newName }) => {
-      const [owner, repo] = fullName.split("/")
-      return octokit.rest.repos.update({ owner, repo, name: newName })
-    })
+  return settleEach(renames, (r) => r.fullName, ({ fullName, newName }) =>
+    octokit.rest.repos.update({ ...splitFullName(fullName), name: newName })
   )
-  return summarizeResults(results, names)
 }

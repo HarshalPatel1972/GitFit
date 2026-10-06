@@ -4,7 +4,11 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { RefreshCw, Skull } from "lucide-react"
-import { fetchAllRepos } from "@/lib/github/repos"
+import { fetchReposPage } from "@/lib/github/repos"
+import { fetchAllPages, runBulk, handleSessionExpiry, errorMessage } from "@/lib/client-actions"
+import type { ActionResult } from "@/lib/result"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { BulkProgress } from "@/components/ui/BulkProgress"
 import { filterRepos } from "@/lib/filters"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
@@ -27,7 +31,7 @@ import {
   bulkRemoveTopics,
   bulkRename,
 } from "@/lib/actions/bulk"
-import type { Filters, GitFitRepo, SortOption } from "@/types"
+import type { BulkActionResult, Filters, GitFitRepo, SortOption } from "@/types"
 
 // `sort: null` means "use the default sort from Settings"
 type FilterState = Omit<Filters, "sort"> & { sort: SortOption | null }
@@ -46,14 +50,18 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const { addToast } = useToast()
 
+  const [loadedCount, setLoadedCount] = useState(0)
   const {
     data: repos,
     isLoading,
+    isError,
+    error,
     refetch,
     isRefetching,
   } = useQuery({
     queryKey: ["repos"],
-    queryFn: fetchAllRepos,
+    queryFn: async () =>
+      (await fetchAllPages(fetchReposPage, { onProgress: setLoadedCount })).items,
     enabled: status === "authenticated",
   })
 
@@ -69,6 +77,7 @@ export default function DashboardPage() {
   const [showTopicEditor, setShowTopicEditor] = useState(false)
   const [showRenameModal, setShowRenameModal] = useState(false)
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
 
   const filteredRepos = useMemo(
     () => filterRepos(repos || [], filters),
@@ -152,9 +161,9 @@ export default function DashboardPage() {
   // Bulk action handlers
   const handleBulkAction = useCallback(
     async (
-      action: (names: string[]) => Promise<{ succeeded: string[]; failed: { name: string; error: string }[] }>,
+      action: (names: string[]) => Promise<ActionResult<BulkActionResult>>,
       actionName: string,
-      undoAction?: (names: string[]) => Promise<unknown>,
+      undoAction?: (names: string[]) => Promise<ActionResult<BulkActionResult>>,
       cacheUpdater?: (repos: GitFitRepo[], succeeded: string[]) => GitFitRepo[],
       names: string[] = selectedNames
     ) => {
@@ -162,7 +171,9 @@ export default function DashboardPage() {
       setBulkLoading(true)
 
       try {
-        const result = await action(names)
+        const result = await runBulk(names, action, {
+          onProgress: (done, total) => setBulkProgress({ done, total }),
+        })
 
         // Update cache optimistically
         if (cacheUpdater && result.succeeded.length > 0) {
@@ -177,7 +188,9 @@ export default function DashboardPage() {
             message: `${actionName}: ${result.succeeded.length} repo${result.succeeded.length === 1 ? "" : "s"}`,
             undoAction: undoAction
               ? () => {
-                  undoAction(result.succeeded).then(() => refetch())
+                  runBulk(result.succeeded, undoAction)
+                    .catch(handleSessionExpiry)
+                    .finally(() => refetch())
                 }
               : undefined,
           })
@@ -186,19 +199,18 @@ export default function DashboardPage() {
         if (result.failed.length > 0) {
           addToast({
             type: "error",
-            message: `Failed: ${result.failed.map((f) => f.name).join(", ")}`,
-            duration: 5000,
+            message: describeFailures(result),
+            duration: 8000,
           })
         }
 
         deselectAll()
       } catch (err) {
-        addToast({
-          type: "error",
-          message: `${actionName} failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        })
+        if (handleSessionExpiry(err)) return
+        addToast({ type: "error", message: `${actionName} failed: ${errorMessage(err)}` })
       } finally {
         setBulkLoading(false)
+        setBulkProgress(null)
       }
     },
     [selectedNames, queryClient, addToast, deselectAll, refetch]
@@ -337,7 +349,14 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {isError && !repos && <ErrorState error={error} onRetry={() => refetch()} />}
+
       {/* Loading skeletons */}
+      {isLoading && loadedCount > 0 && (
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 12 }}>
+          Loading your repositories… {loadedCount.toLocaleString()} so far
+        </p>
+      )}
       {isLoading && (
         <div
           style={{
@@ -524,10 +543,8 @@ export default function DashboardPage() {
             setShowRenameModal(false)
             const newNames = new Map(renames.map((r) => [`${r.owner}/${r.repo}`, r.newName]))
             await handleBulkAction(
-              () =>
-                bulkRename(
-                  renames.map((r) => ({ fullName: `${r.owner}/${r.repo}`, newName: r.newName }))
-                ),
+              (batch) =>
+                bulkRename(batch.map((fullName) => ({ fullName, newName: newNames.get(fullName)! }))),
               "Renamed",
               undefined,
               (repos, succeeded) =>
@@ -541,6 +558,10 @@ export default function DashboardPage() {
             )
           }}
         />
+      )}
+
+      {bulkProgress && bulkProgress.total > 10 && (
+        <BulkProgress done={bulkProgress.done} total={bulkProgress.total} />
       )}
 
       {/* Visibility confirm modal. No undo is offered: GitHub permanently erases
@@ -608,4 +629,15 @@ export default function DashboardPage() {
       `}</style>
     </div>
   )
+}
+
+function describeFailures(result: BulkActionResult): string {
+  const shown = result.failed.slice(0, 3).map((f) => `${f.name} (${f.error})`)
+  const more = result.failed.length - shown.length
+  return [
+    result.rateLimited ? "GitHub rate limit reached, try the rest in a few minutes." : null,
+    `Failed: ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}`,
+  ]
+    .filter(Boolean)
+    .join(" ")
 }

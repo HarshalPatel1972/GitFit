@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { Star, Circle, ExternalLink, Search } from "lucide-react"
 import { Select } from "@/components/ui/Select"
-import { fetchAllStars } from "@/lib/github/stars"
+import { fetchStarsPage } from "@/lib/github/stars"
+import { fetchAllPages, runBulk, handleSessionExpiry, errorMessage } from "@/lib/client-actions"
+import { ErrorState } from "@/components/ui/ErrorState"
+import { BulkProgress } from "@/components/ui/BulkProgress"
 import { bulkUnstar } from "@/lib/actions/stars"
 import { useSelection } from "@/hooks/useSelection"
 import { useToast } from "@/components/ui/Toast"
@@ -16,9 +19,13 @@ export default function StarsPage() {
   const { status } = useSession()
   const { addToast } = useToast()
 
-  const { data: stars, isLoading, refetch } = useQuery({
+  const queryClient = useQueryClient()
+  const [loadedCount, setLoadedCount] = useState(0)
+
+  const { data: stars, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["stars"],
-    queryFn: fetchAllStars,
+    queryFn: async () =>
+      (await fetchAllPages(fetchStarsPage, { onProgress: setLoadedCount })).items,
     enabled: status === "authenticated",
   })
 
@@ -28,6 +35,7 @@ export default function StarsPage() {
   const [preset, setPreset] = useState<"all" | "forgotten">("all")
   const [groupByLang, setGroupByLang] = useState(false)
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
 
   const languages = useMemo(() => {
     if (!stars) return []
@@ -81,21 +89,30 @@ export default function StarsPage() {
     if (selectedNames.length === 0) return
     setBulkLoading(true)
     try {
-      const result = await bulkUnstar(selectedNames)
+      const result = await runBulk(selectedNames, bulkUnstar, {
+        onProgress: (done, total) => setBulkProgress({ done, total }),
+      })
       if (result.succeeded.length > 0) {
-        addToast({ type: "success", message: `Unstarred ${result.succeeded.length} repos` })
-        refetch()
+        const removed = new Set(result.succeeded)
+        queryClient.setQueryData(["stars"], (old: GitFitStar[] | undefined) =>
+          old?.filter((s) => !removed.has(s.full_name))
+        )
+        addToast({ type: "success", message: `Unstarred ${result.succeeded.length} repo${result.succeeded.length === 1 ? "" : "s"}` })
       }
       if (result.failed.length > 0) {
-        addToast({ type: "error", message: `Failed to unstar: ${result.failed.map((f) => f.name).join(", ")}`, duration: 5000 })
+        const shown = result.failed.slice(0, 3).map((f) => `${f.name} (${f.error})`).join(", ")
+        const more = result.failed.length > 3 ? ` and ${result.failed.length - 3} more` : ""
+        addToast({ type: "error", message: `Failed to unstar: ${shown}${more}`, duration: 8000 })
       }
       deselectAll()
-    } catch {
-      addToast({ type: "error", message: "Unstar failed" })
+    } catch (err) {
+      if (handleSessionExpiry(err)) return
+      addToast({ type: "error", message: `Unstar failed: ${errorMessage(err)}` })
     } finally {
       setBulkLoading(false)
+      setBulkProgress(null)
     }
-  }, [selectedNames, addToast, deselectAll, refetch])
+  }, [selectedNames, queryClient, addToast, deselectAll])
 
   // Grouped view
   const grouped = useMemo(() => {
@@ -220,7 +237,17 @@ export default function StarsPage() {
         </div>
       )}
 
+      {isError && !stars && <ErrorState error={error} onRetry={() => refetch()} />}
+      {bulkProgress && bulkProgress.total > 10 && (
+        <BulkProgress done={bulkProgress.done} total={bulkProgress.total} />
+      )}
+
       {/* Loading */}
+      {isLoading && loadedCount > 0 && (
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 12 }}>
+          Loading your stars… {loadedCount.toLocaleString()} so far
+        </p>
+      )}
       {isLoading && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
           {Array.from({ length: 6 }).map((_, i) => (

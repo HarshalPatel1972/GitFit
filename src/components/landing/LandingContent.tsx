@@ -12,9 +12,10 @@ function GitHubIcon({ size = 20 }: { size?: number }) {
 
 interface LandingContentProps {
   signInAction: () => Promise<void>
+  notice?: string
 }
 
-export function LandingContent({ signInAction }: LandingContentProps) {
+export function LandingContent({ signInAction, notice }: LandingContentProps) {
   return (
     <div className="noise-bg" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Hero */}
@@ -62,6 +63,22 @@ export function LandingContent({ signInAction }: LandingContentProps) {
           finally under control.
         </p>
 
+        {notice && (
+          <p
+            role="status"
+            style={{
+              marginBottom: 16,
+              padding: "10px 16px",
+              fontSize: "var(--text-sm)",
+              color: "var(--text-primary)",
+              background: "var(--accent-glow)",
+              border: "1px solid var(--accent-primary-dim)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            {notice}
+          </p>
+        )}
         <form action={signInAction}>
           <button
             type="submit"

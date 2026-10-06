@@ -12,7 +12,10 @@ export async function graphqlFetch(accessToken: string, query: string, variables
   if (!response.ok) {
     const text = await response.text()
     console.error("GraphQL HTTP Error:", response.status, text)
-    throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
+    // Carry the status so callers can tell an expired token (401) or rate limit apart
+    throw Object.assign(new Error(`GitHub API returned ${response.status}: ${text.slice(0, 200)}`), {
+      status: response.status,
+    })
   }
 
   const json = await response.json()
